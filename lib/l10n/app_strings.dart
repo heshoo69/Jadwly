@@ -12,6 +12,10 @@ class AppStrings {
     return AppStrings(context.watch<AppController>().languageCode);
   }
 
+  static AppStrings read(BuildContext context) {
+    return AppStrings(context.read<AppController>().languageCode);
+  }
+
   bool get isEnglish => languageCode == 'en';
 
   TextDirection get textDirection =>
@@ -65,6 +69,13 @@ class AppStrings {
   String get lessonTitle => isEnglish ? 'Lesson title' : 'عنوان الدرس';
   String get lessonTitleRequired =>
       isEnglish ? 'Lesson title is required' : 'عنوان الدرس مطلوب';
+  String get editLesson => isEnglish ? 'Edit lesson' : 'تعديل الدرس';
+  String get updateLesson => isEnglish ? 'Update lesson' : 'تحديث الدرس';
+  String get deleteLesson => isEnglish ? 'Delete lesson' : 'حذف الدرس';
+  String get deleteLessonTitle => isEnglish ? 'Delete lesson?' : 'حذف الدرس؟';
+  String deleteLessonMessage(String lessonTitle) => isEnglish
+      ? 'Are you sure you want to delete "$lessonTitle" from the lesson history?'
+      : 'هل أنت متأكد من حذف "$lessonTitle" من سجل الدروس؟';
   String get sessionType => isEnglish ? 'Session type' : 'نوع الحصة';
   String get completionStatus =>
       isEnglish ? 'Completion status' : 'حالة الإنجاز';
@@ -131,6 +142,17 @@ class AppStrings {
       isEnglish ? 'Developed by HAF-DEV' : 'تم تطوير التطبيق من قبل HAF-DEV';
   String get openDeveloperSite =>
       isEnglish ? 'Open haf-dev.com' : 'فتح haf-dev.com';
+  String get supportAndContact =>
+      isEnglish ? 'Support & Contact' : 'الدعم والتواصل';
+  String get whatsappSupport =>
+      isEnglish ? 'WhatsApp Support' : 'الدعم عبر واتساب';
+  String get supportEmail => isEnglish ? 'Support Email' : 'بريد الدعم';
+  String get website => isEnglish ? 'Website' : 'الموقع الإلكتروني';
+  String get openInWhatsapp =>
+      isEnglish ? 'Open in WhatsApp' : 'فتح عبر واتساب';
+  String get openEmailApp => isEnglish ? 'Open email app' : 'فتح تطبيق البريد';
+  String get openWebsite => isEnglish ? 'Open website' : 'فتح الموقع';
+  String get settingsFooterCopyright => '© 2026 HAF-DEV';
   String get language => isEnglish ? 'Language' : 'اللغة';
   String get arabic => isEnglish ? 'Arabic' : 'العربية';
   String get english => isEnglish ? 'English' : 'English';

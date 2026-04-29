@@ -10,9 +10,14 @@ import '../services/date_helpers.dart';
 import '../widgets/app_text_field.dart';
 
 class AddLessonRecordScreen extends StatefulWidget {
-  const AddLessonRecordScreen({super.key, this.initialClassId});
+  const AddLessonRecordScreen({
+    super.key,
+    this.initialClassId,
+    this.lessonRecord,
+  });
 
   final String? initialClassId;
+  final LessonRecord? lessonRecord;
 
   @override
   State<AddLessonRecordScreen> createState() => _AddLessonRecordScreenState();
@@ -30,7 +35,15 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
   @override
   void initState() {
     super.initState();
-    _classId = widget.initialClassId;
+    final lesson = widget.lessonRecord;
+    _classId = lesson?.classId ?? widget.initialClassId;
+    if (lesson != null) {
+      _titleController.text = lesson.lessonTitle;
+      _notesController.text = lesson.notes;
+      _sessionType = lesson.sessionType;
+      _status = lesson.status;
+      _date = lesson.date;
+    }
   }
 
   @override
@@ -44,8 +57,11 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     final strings = AppStrings.of(context);
+    final isEditing = widget.lessonRecord != null;
     return Scaffold(
-      appBar: AppBar(title: Text(strings.recordLesson)),
+      appBar: AppBar(
+        title: Text(isEditing ? strings.editLesson : strings.recordLesson),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -126,8 +142,14 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => _save(controller),
-              icon: const Icon(Icons.save_outlined),
-              label: Text(strings.saveLesson),
+              icon: Icon(
+                isEditing
+                    ? Icons.check_circle_outline
+                    : Icons.save_outlined,
+              ),
+              label: Text(
+                isEditing ? strings.updateLesson : strings.saveLesson,
+              ),
             ),
           ],
         ),
@@ -147,18 +169,22 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
 
   Future<void> _save(AppController controller) async {
     if (!_formKey.currentState!.validate()) return;
-    await controller.addLesson(
-      LessonRecord(
-        id: newId(),
-        classId: _classId!,
-        lessonTitle: _titleController.text.trim(),
-        sessionType: _sessionType,
-        notes: _notesController.text.trim(),
-        status: _status,
-        date: _date,
-        createdAt: DateTime.now(),
-      ),
+    final existingLesson = widget.lessonRecord;
+    final record = LessonRecord(
+      id: existingLesson?.id ?? newId(),
+      classId: _classId!,
+      lessonTitle: _titleController.text.trim(),
+      sessionType: _sessionType,
+      notes: _notesController.text.trim(),
+      status: _status,
+      date: _date,
+      createdAt: existingLesson?.createdAt ?? DateTime.now(),
     );
+    if (existingLesson == null) {
+      await controller.addLesson(record);
+    } else {
+      await controller.updateLesson(record);
+    }
     if (mounted) Navigator.pop(context);
   }
 }

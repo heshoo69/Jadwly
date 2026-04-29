@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_strings.dart';
+import '../widgets/bottom_navigation_clearance.dart';
 import 'classes_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
 import 'weekly_schedule_screen.dart';
+
+const double _bottomNavigationBarHeight = 92;
+const double _bottomNavigationTopInset = 4;
+const double _bottomNavigationBottomInset = 10;
+const double _bottomNavigationContentGap = 20;
+const double _bottomNavigationFabGap = 115;
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -33,7 +40,14 @@ class _AppShellState extends State<AppShell> {
       strings.classes,
       strings.settings,
     ];
+    final bottomNavigationClearance = _bottomNavigationBarHeight +
+        _bottomNavigationTopInset +
+        _bottomNavigationBottomInset +
+        _bottomNavigationContentGap +
+        MediaQuery.paddingOf(context).bottom;
+    const bottomNavigationFabOffset = _bottomNavigationFabGap;
     return Scaffold(
+      extendBody: true,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,7 +64,17 @@ class _AppShellState extends State<AppShell> {
         ),
         centerTitle: false,
       ),
-      body: _screens[_index],
+      body: BottomNavigationClearance(
+        bottomPadding: bottomNavigationClearance,
+        fabOffset: bottomNavigationFabOffset,
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          left: true,
+          right: true,
+          child: _screens[_index],
+        ),
+      ),
       bottomNavigationBar: _GlassBottomNavigation(
         selectedIndex: _index,
         onSelected: (value) => setState(() => _index = value),
@@ -109,37 +133,45 @@ class _GlassBottomNavigation extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(14, 4, 14, 10),
-      child: Container(
-        height: 92,
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: isDark ? 0.72 : 0.92,
-          ),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.22),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withValues(alpha: 0.14),
-              blurRadius: 28,
-              offset: const Offset(0, 14),
+      minimum: const EdgeInsets.fromLTRB(
+        14,
+        _bottomNavigationTopInset,
+        14,
+        _bottomNavigationBottomInset,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Container(
+          height: _bottomNavigationBarHeight,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: isDark ? 0.72 : 0.92,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            for (var index = 0; index < items.length; index++)
-              Expanded(
-                child: _GlassNavButton(
-                  item: items[index],
-                  selected: selectedIndex == index,
-                  onTap: () => onSelected(index),
-                ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.22),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withValues(alpha: 0.14),
+                blurRadius: 28,
+                offset: const Offset(0, 14),
               ),
-          ],
+            ],
+          ),
+          child: Row(
+            children: [
+              for (var index = 0; index < items.length; index++)
+                Expanded(
+                  child: _GlassNavButton(
+                    item: items[index],
+                    selected: selectedIndex == index,
+                    onTap: () => onSelected(index),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

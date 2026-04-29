@@ -5,6 +5,7 @@ import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../models/schedule_item.dart';
 import '../services/date_helpers.dart';
+import '../widgets/bottom_navigation_clearance.dart';
 import '../widgets/empty_state.dart';
 import 'schedule_form_screen.dart';
 
@@ -23,6 +24,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     final controller = context.watch<AppController>();
     final strings = AppStrings.of(context);
     final isWeeklyGrid = controller.scheduleViewMode == 'weeklyGrid';
+    final fabOffset = BottomNavigationClearance.forFab(context);
 
     return Scaffold(
       body: Column(
@@ -52,17 +54,21 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ScheduleFormScreen(
-              initialDay: isWeeklyGrid ? DateTime.now().weekday : _selectedDay,
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: fabOffset),
+        child: FloatingActionButton(
+          tooltip: strings.addScheduleItem,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ScheduleFormScreen(
+                initialDay:
+                    isWeeklyGrid ? DateTime.now().weekday : _selectedDay,
+              ),
             ),
           ),
+          child: const Icon(Icons.add),
         ),
-        icon: const Icon(Icons.add),
-        label: Text(strings.addScheduleItem),
       ),
     );
   }
@@ -155,9 +161,10 @@ class _WeeklyGridView extends StatelessWidget {
     final strings = AppStrings.of(context);
     final theme = Theme.of(context);
     final days = controller.visibleWeekDays;
+    final bottomClearance = BottomNavigationClearance.of(context);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+      padding: EdgeInsets.fromLTRB(12, 8, 12, 16 + bottomClearance),
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -448,6 +455,7 @@ class _DailyListView extends StatelessWidget {
     final effectiveDay =
         days.contains(selectedDay) || days.isEmpty ? selectedDay : days.first;
     final items = controller.scheduleForDay(effectiveDay);
+    final bottomClearance = BottomNavigationClearance.of(context);
 
     return Column(
       children: [
@@ -471,15 +479,23 @@ class _DailyListView extends StatelessWidget {
         ),
         Expanded(
           child: items.isEmpty
-              ? EmptyState(
-                  icon: Icons.calendar_month_outlined,
-                  title: strings.noPeriods,
-                  message: strings.noPeriodsForDay(
-                    localizedDayName(effectiveDay, controller.languageCode),
+              ? Padding(
+                  padding: EdgeInsets.only(bottom: bottomClearance),
+                  child: EmptyState(
+                    icon: Icons.calendar_month_outlined,
+                    title: strings.noPeriods,
+                    message: strings.noPeriodsForDay(
+                      localizedDayName(effectiveDay, controller.languageCode),
+                    ),
                   ),
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    16 + bottomClearance,
+                  ),
                   itemCount: items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
@@ -615,7 +631,7 @@ class _ScheduleListCard extends StatelessWidget {
     BuildContext context,
     String itemLabel,
   ) async {
-    final strings = AppStrings.of(context);
+    final strings = AppStrings.read(context);
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

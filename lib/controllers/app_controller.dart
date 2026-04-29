@@ -140,6 +140,20 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateLesson(LessonRecord record) async {
+    await StorageService.lessonsBox.put(record.id, record);
+    _load();
+    await _syncClassReminders();
+    notifyListeners();
+  }
+
+  Future<void> deleteLesson(String id) async {
+    await StorageService.lessonsBox.delete(id);
+    _load();
+    await _syncClassReminders();
+    notifyListeners();
+  }
+
   Future<void> saveTeacherName(String name) async {
     await StorageService.settingsBox.put('teacherName', name.trim());
     _load();

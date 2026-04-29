@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
+import '../widgets/bottom_navigation_clearance.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/lesson_summary.dart';
 import 'class_details_screen.dart';
@@ -16,16 +17,21 @@ class ClassesScreen extends StatelessWidget {
     final controller = context.watch<AppController>();
     final strings = AppStrings.of(context);
     final theme = Theme.of(context);
+    final bottomClearance = BottomNavigationClearance.of(context);
+    final fabOffset = BottomNavigationClearance.forFab(context);
 
     return Scaffold(
       body: controller.classes.isEmpty
-          ? EmptyState(
-              icon: Icons.groups_outlined,
-              title: strings.noClasses,
-              message: strings.noClassesMessage,
+          ? Padding(
+              padding: EdgeInsets.only(bottom: bottomClearance),
+              child: EmptyState(
+                icon: Icons.groups_outlined,
+                title: strings.noClasses,
+                message: strings.noClassesMessage,
+              ),
             )
           : ListView.separated(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomClearance),
               itemCount: controller.classes.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
@@ -122,13 +128,16 @@ class ClassesScreen extends StatelessWidget {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ClassFormScreen()),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: fabOffset),
+        child: FloatingActionButton(
+          tooltip: strings.addClass,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ClassFormScreen()),
+          ),
+          child: const Icon(Icons.add),
         ),
-        icon: const Icon(Icons.add),
-        label: Text(strings.addClass),
       ),
     );
   }

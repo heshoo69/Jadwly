@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../services/date_helpers.dart';
+import '../widgets/bottom_navigation_clearance.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/lesson_summary.dart';
@@ -20,6 +21,7 @@ class HomeScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final today = DateTime.now();
     final items = controller.scheduleForDay(today.weekday);
+    final bottomClearance = BottomNavigationClearance.of(context);
 
     return Scaffold(
       body: CustomScrollView(
@@ -154,6 +156,7 @@ class HomeScreen extends StatelessWidget {
             ),
           if (items.isEmpty)
             SliverFillRemaining(
+              hasScrollBody: false,
               child: EmptyState(
                 icon: Icons.today_outlined,
                 title: strings.noClassesToday,
@@ -288,6 +291,9 @@ class HomeScreen extends StatelessWidget {
                 },
               ),
             ),
+          SliverToBoxAdapter(
+            child: SizedBox(height: bottomClearance),
+          ),
         ],
       ),
     );
