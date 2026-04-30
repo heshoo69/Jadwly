@@ -58,100 +58,113 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
     final controller = context.watch<AppController>();
     final strings = AppStrings.of(context);
     final isEditing = widget.lessonRecord != null;
+    final mediaPadding = MediaQuery.paddingOf(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? strings.editLesson : strings.recordLesson),
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(kToolbarHeight + mediaPadding.top),
+        child: SafeArea(
+          bottom: false,
+          child: AppBar(
+            primary: false,
+            title: Text(isEditing ? strings.editLesson : strings.recordLesson),
+          ),
+        ),
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _classId,
-              decoration: InputDecoration(
-                labelText: strings.classLabel,
-                border: const OutlineInputBorder(),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: _classId,
+                decoration: InputDecoration(
+                  labelText: strings.classLabel,
+                  border: const OutlineInputBorder(),
+                ),
+                items: controller.classes
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text('${item.className} - ${item.subject}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _classId = value),
+                validator: (value) =>
+                    value == null ? strings.selectClass : null,
               ),
-              items: controller.classes
-                  .map(
-                    (item) => DropdownMenuItem(
-                      value: item.id,
-                      child: Text('${item.className} - ${item.subject}'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _classId = value),
-              validator: (value) => value == null ? strings.selectClass : null,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _titleController,
-              label: strings.lessonTitle,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? strings.lessonTitleRequired
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<SessionType>(
-              initialValue: _sessionType,
-              decoration: InputDecoration(
-                labelText: strings.sessionType,
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _titleController,
+                label: strings.lessonTitle,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? strings.lessonTitleRequired
+                    : null,
               ),
-              items: SessionType.values
-                  .map((type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(type.label(controller.languageCode))))
-                  .toList(),
-              onChanged: (value) =>
-                  setState(() => _sessionType = value ?? _sessionType),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<LessonStatus>(
-              initialValue: _status,
-              decoration: InputDecoration(
-                labelText: strings.completionStatus,
-                border: const OutlineInputBorder(),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<SessionType>(
+                initialValue: _sessionType,
+                decoration: InputDecoration(
+                  labelText: strings.sessionType,
+                  border: const OutlineInputBorder(),
+                ),
+                items: SessionType.values
+                    .map((type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(type.label(controller.languageCode))))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _sessionType = value ?? _sessionType),
               ),
-              items: LessonStatus.values
-                  .map((status) => DropdownMenuItem(
-                      value: status,
-                      child: Text(status.label(controller.languageCode))))
-                  .toList(),
-              onChanged: (value) => setState(() => _status = value ?? _status),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Theme.of(context).colorScheme.outline),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<LessonStatus>(
+                initialValue: _status,
+                decoration: InputDecoration(
+                  labelText: strings.completionStatus,
+                  border: const OutlineInputBorder(),
+                ),
+                items: LessonStatus.values
+                    .map((status) => DropdownMenuItem(
+                        value: status,
+                        child: Text(status.label(controller.languageCode))))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _status = value ?? _status),
               ),
-              title: Text(strings.date),
-              subtitle:
-                  Text(formatLocalizedDate(_date, controller.languageCode)),
-              trailing: const Icon(Icons.calendar_today_outlined),
-              onTap: _pickDate,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _notesController,
-              label: strings.notes,
-              maxLines: 4,
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: () => _save(controller),
-              icon: Icon(
-                isEditing
-                    ? Icons.check_circle_outline
-                    : Icons.save_outlined,
+              const SizedBox(height: 12),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side:
+                      BorderSide(color: Theme.of(context).colorScheme.outline),
+                ),
+                title: Text(strings.date),
+                subtitle:
+                    Text(formatLocalizedDate(_date, controller.languageCode)),
+                trailing: const Icon(Icons.calendar_today_outlined),
+                onTap: _pickDate,
               ),
-              label: Text(
-                isEditing ? strings.updateLesson : strings.saveLesson,
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _notesController,
+                label: strings.notes,
+                maxLines: 4,
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () => _save(controller),
+                icon: Icon(
+                  isEditing ? Icons.check_circle_outline : Icons.save_outlined,
+                ),
+                label: Text(
+                  isEditing ? strings.updateLesson : strings.saveLesson,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

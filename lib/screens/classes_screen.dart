@@ -22,13 +22,17 @@ class ClassesScreen extends StatelessWidget {
 
     return Scaffold(
       body: controller.classes.isEmpty
-          ? Padding(
-              padding: EdgeInsets.only(bottom: bottomClearance),
-              child: EmptyState(
-                icon: Icons.groups_outlined,
-                title: strings.noClasses,
-                message: strings.noClassesMessage,
-              ),
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: bottomClearance),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: const _ClassesEmptyState(),
+                  ),
+                );
+              },
             )
           : ListView.separated(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomClearance),
@@ -170,5 +174,20 @@ class ClassesScreen extends StatelessWidget {
       ),
     );
     return result ?? false;
+  }
+}
+
+class _ClassesEmptyState extends StatelessWidget {
+  const _ClassesEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+
+    return EmptyState(
+      icon: Icons.groups_outlined,
+      title: strings.noClasses,
+      message: strings.noClassesMessage,
+    );
   }
 }

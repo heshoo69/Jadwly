@@ -479,15 +479,26 @@ class _DailyListView extends StatelessWidget {
         ),
         Expanded(
           child: items.isEmpty
-              ? Padding(
-                  padding: EdgeInsets.only(bottom: bottomClearance),
-                  child: EmptyState(
-                    icon: Icons.calendar_month_outlined,
-                    title: strings.noPeriods,
-                    message: strings.noPeriodsForDay(
-                      localizedDayName(effectiveDay, controller.languageCode),
-                    ),
-                  ),
+              ? LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: bottomClearance),
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
+                        child: EmptyState(
+                          icon: Icons.calendar_month_outlined,
+                          title: strings.noPeriods,
+                          message: strings.noPeriodsForDay(
+                            localizedDayName(
+                              effectiveDay,
+                              controller.languageCode,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 )
               : ListView.separated(
                   padding: EdgeInsets.fromLTRB(

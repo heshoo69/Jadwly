@@ -538,7 +538,7 @@ class _SupportActionTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_left_rounded,
+                Icons.north_west_rounded,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

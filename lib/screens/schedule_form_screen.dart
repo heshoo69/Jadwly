@@ -61,113 +61,127 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
     final strings = AppStrings.of(context);
+    final mediaPadding = MediaQuery.paddingOf(context);
     return Scaffold(
-      appBar: AppBar(
-          title: Text(widget.scheduleItem == null
-              ? strings.addPeriod
-              : strings.editPeriod)),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            DropdownButtonFormField<int>(
-              initialValue: _dayOfWeek,
-              decoration: InputDecoration(
-                  labelText: strings.day, border: const OutlineInputBorder()),
-              items: orderedWeekDays
-                  .map((day) => DropdownMenuItem(
-                      value: day,
-                      child:
-                          Text(localizedDayName(day, controller.languageCode))))
-                  .toList(),
-              onChanged: (value) =>
-                  setState(() => _dayOfWeek = value ?? _dayOfWeek),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _classId,
-              decoration: InputDecoration(
-                  labelText: strings.classLabel,
-                  border: const OutlineInputBorder()),
-              items: controller.classes
-                  .map((item) => DropdownMenuItem(
-                      value: item.id,
-                      child: Text('${item.className} - ${item.subject}')))
-                  .toList(),
-              onChanged: (value) {
-                final selected = controller.classById(value ?? '');
-                setState(() {
-                  _classId = value;
-                  if (selected != null) {
-                    _subjectController.text = selected.subject;
-                    _roomController.text = selected.roomNumber ?? '';
-                  }
-                });
-              },
-              validator: (value) => value == null ? strings.selectClass : null,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _periodController,
-              label: strings.periodNumberOptional,
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                final text = value?.trim() ?? '';
-                if (text.isEmpty) return null;
-                return int.tryParse(text) == null
-                    ? strings.invalidNumber
-                    : null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _startController,
-              readOnly: true,
-              textDirection: TextDirection.ltr,
-              decoration: InputDecoration(
-                labelText: strings.startTime,
-                border: const OutlineInputBorder(),
-                suffixIcon: const Icon(Icons.schedule_outlined),
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(kToolbarHeight + mediaPadding.top),
+        child: SafeArea(
+          bottom: false,
+          child: AppBar(
+            primary: false,
+            title: Text(widget.scheduleItem == null
+                ? strings.addPeriod
+                : strings.editPeriod),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: _dayOfWeek,
+                decoration: InputDecoration(
+                    labelText: strings.day, border: const OutlineInputBorder()),
+                items: orderedWeekDays
+                    .map((day) => DropdownMenuItem(
+                        value: day,
+                        child: Text(
+                            localizedDayName(day, controller.languageCode))))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _dayOfWeek = value ?? _dayOfWeek),
               ),
-              onTap: () => _pickTime(_startController),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? strings.startTimeRequired
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _endController,
-              readOnly: true,
-              textDirection: TextDirection.ltr,
-              decoration: InputDecoration(
-                labelText: strings.endTime,
-                border: const OutlineInputBorder(),
-                suffixIcon: const Icon(Icons.schedule_outlined),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _classId,
+                decoration: InputDecoration(
+                    labelText: strings.classLabel,
+                    border: const OutlineInputBorder()),
+                items: controller.classes
+                    .map((item) => DropdownMenuItem(
+                        value: item.id,
+                        child: Text('${item.className} - ${item.subject}')))
+                    .toList(),
+                onChanged: (value) {
+                  final selected = controller.classById(value ?? '');
+                  setState(() {
+                    _classId = value;
+                    if (selected != null) {
+                      _subjectController.text = selected.subject;
+                      _roomController.text = selected.roomNumber ?? '';
+                    }
+                  });
+                },
+                validator: (value) =>
+                    value == null ? strings.selectClass : null,
               ),
-              onTap: () => _pickTime(_endController),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? strings.endTimeRequired
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _subjectController,
-              label: strings.subject,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? strings.subjectRequired
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-                controller: _roomController, label: strings.roomOptional),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save_outlined),
-              label: Text(strings.save),
-            ),
-          ],
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _periodController,
+                label: strings.periodNumberOptional,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) return null;
+                  return int.tryParse(text) == null
+                      ? strings.invalidNumber
+                      : null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _startController,
+                readOnly: true,
+                textDirection: TextDirection.ltr,
+                decoration: InputDecoration(
+                  labelText: strings.startTime,
+                  border: const OutlineInputBorder(),
+                  suffixIcon: const Icon(Icons.schedule_outlined),
+                ),
+                onTap: () => _pickTime(_startController),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? strings.startTimeRequired
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _endController,
+                readOnly: true,
+                textDirection: TextDirection.ltr,
+                decoration: InputDecoration(
+                  labelText: strings.endTime,
+                  border: const OutlineInputBorder(),
+                  suffixIcon: const Icon(Icons.schedule_outlined),
+                ),
+                onTap: () => _pickTime(_endController),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? strings.endTimeRequired
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _subjectController,
+                label: strings.subject,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? strings.subjectRequired
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                  controller: _roomController, label: strings.roomOptional),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined),
+                label: Text(strings.save),
+              ),
+            ],
+          ),
         ),
       ),
     );

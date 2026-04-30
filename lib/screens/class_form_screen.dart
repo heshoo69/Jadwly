@@ -44,41 +44,54 @@ class _ClassFormScreenState extends State<ClassFormScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final mediaPadding = MediaQuery.paddingOf(context);
     return Scaffold(
-      appBar: AppBar(
-          title: Text(widget.teacherClass == null
-              ? strings.addClassTitle
-              : strings.editClassTitle)),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            AppTextField(
-              controller: _classNameController,
-              label: strings.className,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? strings.classNameRequired
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _subjectController,
-              label: strings.subject,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? strings.subjectRequired
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-                controller: _roomController, label: strings.roomOptional),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save_outlined),
-              label: Text(strings.save),
-            ),
-          ],
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(kToolbarHeight + mediaPadding.top),
+        child: SafeArea(
+          bottom: false,
+          child: AppBar(
+            primary: false,
+            title: Text(widget.teacherClass == null
+                ? strings.addClassTitle
+                : strings.editClassTitle),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              AppTextField(
+                controller: _classNameController,
+                label: strings.className,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? strings.classNameRequired
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _subjectController,
+                label: strings.subject,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? strings.subjectRequired
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                  controller: _roomController, label: strings.roomOptional),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined),
+                label: Text(strings.save),
+              ),
+            ],
+          ),
         ),
       ),
     );
