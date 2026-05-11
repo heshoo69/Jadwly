@@ -13,6 +13,7 @@ class LessonRecord {
     required this.status,
     required this.date,
     required this.createdAt,
+    this.teacherId,
   });
 
   final String id;
@@ -23,6 +24,31 @@ class LessonRecord {
   final LessonStatus status;
   final DateTime date;
   final DateTime createdAt;
+  final String? teacherId;
+
+  LessonRecord copyWith({
+    String? id,
+    String? classId,
+    String? lessonTitle,
+    SessionType? sessionType,
+    String? notes,
+    LessonStatus? status,
+    DateTime? date,
+    DateTime? createdAt,
+    String? teacherId,
+  }) {
+    return LessonRecord(
+      id: id ?? this.id,
+      classId: classId ?? this.classId,
+      lessonTitle: lessonTitle ?? this.lessonTitle,
+      sessionType: sessionType ?? this.sessionType,
+      notes: notes ?? this.notes,
+      status: status ?? this.status,
+      date: date ?? this.date,
+      createdAt: createdAt ?? this.createdAt,
+      teacherId: teacherId ?? this.teacherId,
+    );
+  }
 }
 
 class LessonRecordAdapter extends TypeAdapter<LessonRecord> {
@@ -45,13 +71,14 @@ class LessonRecordAdapter extends TypeAdapter<LessonRecord> {
       status: lessonStatusFromName(fields[5] as String),
       date: fields[6] as DateTime,
       createdAt: fields[7] as DateTime,
+      teacherId: fields[8] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, LessonRecord obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -67,6 +94,8 @@ class LessonRecordAdapter extends TypeAdapter<LessonRecord> {
       ..writeByte(6)
       ..write(obj.date)
       ..writeByte(7)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(8)
+      ..write(obj.teacherId);
   }
 }

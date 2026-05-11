@@ -5,12 +5,15 @@ import 'package:provider/provider.dart';
 import 'controllers/app_controller.dart';
 import 'l10n/app_strings.dart';
 import 'screens/splash_screen.dart';
+import 'services/app_feedback_service.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
+import 'services/supabase_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseService.initialize();
   await StorageService.init();
   await NotificationService.init();
   runApp(const JadwaliApp());
@@ -27,6 +30,7 @@ class JadwaliApp extends StatelessWidget {
         builder: (context, controller, _) {
           final strings = AppStrings(controller.languageCode);
           return MaterialApp(
+            scaffoldMessengerKey: AppFeedbackService.scaffoldMessengerKey,
             title: strings.appName,
             debugShowCheckedModeBanner: false,
             locale: Locale(controller.languageCode),

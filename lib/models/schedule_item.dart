@@ -10,6 +10,7 @@ class ScheduleItem {
     required this.subject,
     required this.classId,
     this.roomNumber,
+    this.teacherId,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class ScheduleItem {
   final String subject;
   final String classId;
   final String? roomNumber;
+  final String? teacherId;
 
   ScheduleItem copyWith({
     String? id,
@@ -30,6 +32,7 @@ class ScheduleItem {
     String? subject,
     String? classId,
     String? roomNumber,
+    String? teacherId,
   }) {
     return ScheduleItem(
       id: id ?? this.id,
@@ -40,6 +43,7 @@ class ScheduleItem {
       subject: subject ?? this.subject,
       classId: classId ?? this.classId,
       roomNumber: roomNumber ?? this.roomNumber,
+      teacherId: teacherId ?? this.teacherId,
     );
   }
 }
@@ -64,13 +68,14 @@ class ScheduleItemAdapter extends TypeAdapter<ScheduleItem> {
       subject: fields[5] as String,
       classId: fields[6] as String,
       roomNumber: fields[7] as String?,
+      teacherId: fields[8] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ScheduleItem obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -86,6 +91,8 @@ class ScheduleItemAdapter extends TypeAdapter<ScheduleItem> {
       ..writeByte(6)
       ..write(obj.classId)
       ..writeByte(7)
-      ..write(obj.roomNumber);
+      ..write(obj.roomNumber)
+      ..writeByte(8)
+      ..write(obj.teacherId);
   }
 }

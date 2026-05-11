@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../controllers/app_controller.dart';
@@ -23,6 +24,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   late final TextEditingController _nameController;
   String _appVersion = '...';
+  bool _isEditingName = true;
+  bool _didInitializeNameEditing = false;
 
   @override
   void initState() {
@@ -36,6 +39,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.didChangeDependencies();
     final name = context.watch<AppController>().teacherName;
     if (_nameController.text != name) _nameController.text = name;
+    if (!_didInitializeNameEditing) {
+      _isEditingName = name.trim().isEmpty;
+      _didInitializeNameEditing = true;
+    }
   }
 
   @override
@@ -81,28 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               _SettingsSection(
                 title: strings.account,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: strings.teacherName,
-                        prefixIcon: const Icon(Icons.person_outline),
-                      ),
-                      onSubmitted: controller.saveTeacherName,
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () =>
-                            controller.saveTeacherName(_nameController.text),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(strings.saveName),
-                      ),
-                    ),
-                  ],
-                ),
+                child: _buildAccountSection(context, controller, strings),
               ),
               const SizedBox(height: 16),
               _SettingsSection(
@@ -273,6 +259,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                  onPressed: () => _signOut(context, strings),
+                  icon: const Icon(Icons.logout_outlined),
+                  label: Text(strings.signOut),
+                ),
+              ),
             ],
           ),
         ),
@@ -296,6 +294,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAccountSection(
+    BuildContext context,
+    AppController controller,
+    AppStrings strings,
+  ) {
+    final savedName = controller.teacherName.trim();
+    if (!_isEditingName && savedName.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.person_outline),
+            title: Text(strings.teacherName),
+            subtitle: Text(
+              savedName,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _isEditingName = true),
+              icon: const Icon(Icons.edit_outlined),
+              label: Text(strings.editName),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _nameController,
+          decoration: InputDecoration(
+            labelText: strings.teacherName,
+            prefixIcon: const Icon(Icons.person_outline),
+            helperText: savedName.isEmpty ? strings.noNameSaved : null,
+          ),
+          onSubmitted: (_) => _saveName(context, controller, strings),
+        ),
+        const SizedBox(height: 10),
+        FilledButton.icon(
+          onPressed: () => _saveName(context, controller, strings),
+          icon: const Icon(Icons.save_outlined),
+          label: Text(strings.saveName),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _saveName(
+    BuildContext context,
+    AppController controller,
+    AppStrings strings,
+  ) async {
+    await controller.saveTeacherName(_nameController.text);
+    if (!context.mounted) return;
+    setState(() => _isEditingName = controller.teacherName.trim().isEmpty);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(strings.nameSaved)),
     );
   }
 
@@ -345,6 +412,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content:
               Text(AppStrings(controller.languageCode).notificationsDenied),
         ),
+      );
+    }
+  }
+
+  Future<void> _signOut(BuildContext context, AppStrings strings) async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.signOutMessage)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.signOutFailed)),
       );
     }
   }

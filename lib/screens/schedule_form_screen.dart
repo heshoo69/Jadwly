@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
@@ -27,6 +28,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   late final TextEditingController _endController;
   late final TextEditingController _subjectController;
   late final TextEditingController _roomController;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -159,9 +161,14 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   suffixIcon: const Icon(Icons.schedule_outlined),
                 ),
                 onTap: () => _pickTime(_endController),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? strings.endTimeRequired
-                    : null,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return strings.endTimeRequired;
+                  }
+                  return _isEndTimeAfterStart()
+                      ? null
+                      : strings.endTimeMustBeAfterStartTime;
+                },
               ),
               const SizedBox(height: 12),
               AppTextField(
@@ -176,8 +183,17 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   controller: _roomController, label: strings.roomOptional),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save_outlined),
+                onPressed: _isSaving ? null : _save,
+                icon: _isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined),
                 label: Text(strings.save),
               ),
             ],
@@ -189,6 +205,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
     final existing = widget.scheduleItem;
     final periodText = _periodController.text.trim();
     final item = ScheduleItem(
@@ -202,9 +219,23 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       roomNumber: _roomController.text.trim().isEmpty
           ? null
           : _roomController.text.trim(),
+      teacherId:
+          existing?.teacherId ?? Supabase.instance.client.auth.currentUser!.id,
     );
-    await context.read<AppController>().saveScheduleItem(item);
-    if (mounted) Navigator.pop(context);
+    try {
+      await context.read<AppController>().saveScheduleItem(
+            item,
+            isNew: existing == null,
+          );
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.read(context).savePeriodFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickTime(TextEditingController targetController) async {
@@ -231,5 +262,15 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
     if (picked == null) return;
     targetController.text = formatClockTimeAmPm(picked.hour, picked.minute);
+  }
+
+  bool _isEndTimeAfterStart() {
+    final start = parseClockTime(_startController.text);
+    final end = parseClockTime(_endController.text);
+    if (start == null || end == null) return true;
+
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    return endMinutes > startMinutes;
   }
 }

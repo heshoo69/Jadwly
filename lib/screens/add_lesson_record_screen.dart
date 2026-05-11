@@ -31,6 +31,7 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
   SessionType _sessionType = SessionType.theoretical;
   LessonStatus _status = LessonStatus.completed;
   DateTime _date = DateTime.now();
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -155,10 +156,21 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: () => _save(controller),
-                icon: Icon(
-                  isEditing ? Icons.check_circle_outline : Icons.save_outlined,
-                ),
+                onPressed: _isSaving ? null : () => _save(controller),
+                icon: _isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      )
+                    : Icon(
+                        isEditing
+                            ? Icons.check_circle_outline
+                            : Icons.save_outlined,
+                      ),
                 label: Text(
                   isEditing ? strings.updateLesson : strings.saveLesson,
                 ),
@@ -182,6 +194,7 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
 
   Future<void> _save(AppController controller) async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
     final existingLesson = widget.lessonRecord;
     final record = LessonRecord(
       id: existingLesson?.id ?? newId(),
@@ -192,12 +205,22 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
       status: _status,
       date: _date,
       createdAt: existingLesson?.createdAt ?? DateTime.now(),
+      teacherId: existingLesson?.teacherId,
     );
-    if (existingLesson == null) {
-      await controller.addLesson(record);
-    } else {
-      await controller.updateLesson(record);
+    try {
+      if (existingLesson == null) {
+        await controller.addLesson(record);
+      } else {
+        await controller.updateLesson(record);
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.read(context).saveLessonFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-    if (mounted) Navigator.pop(context);
   }
 }

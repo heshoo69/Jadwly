@@ -82,6 +82,16 @@ class AppStrings {
   String get date => isEnglish ? 'Date' : 'التاريخ';
   String get notes => isEnglish ? 'Notes' : 'ملاحظات';
   String get saveLesson => isEnglish ? 'Save lesson' : 'حفظ الدرس';
+  String get lessonSavedAndSynced =>
+      isEnglish ? 'Lesson saved and synced.' : 'تم حفظ الدرس ومزامنته.';
+  String get lessonUpdatedAndSynced =>
+      isEnglish ? 'Lesson updated and synced.' : 'تم تحديث الدرس ومزامنته.';
+  String get lessonSavedLocallySyncFailed => isEnglish
+      ? 'Lesson saved on this device, but cloud sync failed.'
+      : 'تم حفظ الدرس على الجهاز، لكن تعذرت المزامنة مع السحابة.';
+  String get saveLessonFailed => isEnglish
+      ? 'Could not save the lesson. Try again.'
+      : 'تعذر حفظ الدرس. حاول مرة أخرى.';
 
   String get addScheduleItem => isEnglish ? 'New period' : 'حصة جديدة';
   String get weeklySchedule =>
@@ -96,6 +106,12 @@ class AppStrings {
       : 'الحصص بدون رقم تظهر في الشكل الخطي فقط.';
   String get addPeriod => isEnglish ? 'Add period' : 'إضافة حصة';
   String get editPeriod => isEnglish ? 'Edit period' : 'تعديل حصة';
+  String get savePeriodFailed => isEnglish
+      ? 'Could not save the period. Check the details and try again.'
+      : 'تعذر حفظ الحصة. تحقق من البيانات وحاول مرة أخرى.';
+  String get endTimeMustBeAfterStartTime => isEnglish
+      ? 'End time must be after start time.'
+      : 'وقت النهاية يجب أن يكون بعد وقت البداية.';
   String get noPeriods => isEnglish ? 'No periods' : 'لا توجد حصص';
   String noPeriodsForDay(String day) => isEnglish
       ? 'Add periods for $day using the add button.'
@@ -130,6 +146,16 @@ class AppStrings {
   String get account => isEnglish ? 'Account' : 'الحساب';
   String get teacherName => isEnglish ? 'Teacher name' : 'اسم المعلم';
   String get saveName => isEnglish ? 'Save name' : 'حفظ الاسم';
+  String get editName => isEnglish ? 'Edit name' : 'تعديل الاسم';
+  String get nameSaved => isEnglish ? 'Name saved.' : 'تم حفظ الاسم.';
+  String get noNameSaved =>
+      isEnglish ? 'No name saved yet' : 'لم يتم حفظ الاسم بعد';
+  String get signOut => isEnglish ? 'Sign out' : 'تسجيل الخروج';
+  String get signOutMessage =>
+      isEnglish ? 'You have been signed out.' : 'تم تسجيل الخروج من حسابك.';
+  String get signOutFailed => isEnglish
+      ? 'Could not sign out. Please try again.'
+      : 'تعذر تسجيل الخروج. حاول مرة أخرى.';
   String get preferences => isEnglish ? 'Preferences' : 'التفضيلات';
   String get weekSettings => isEnglish ? 'Week settings' : 'إعدادات الأسبوع';
   String get weekStart => isEnglish ? 'Week starts on' : 'بداية الأسبوع';
