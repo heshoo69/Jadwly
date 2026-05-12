@@ -21,7 +21,7 @@ class AppStrings {
   TextDirection get textDirection =>
       isEnglish ? TextDirection.ltr : TextDirection.rtl;
 
-  String get appName => isEnglish ? 'Jadwali' : 'جدولي';
+  String get appName => isEnglish ? 'Jadwly' : 'جدولي';
   String get today => isEnglish ? 'Today' : 'اليوم';
   String get schedule => isEnglish ? 'Schedule' : 'الجدول';
   String get classes => isEnglish ? 'Classes' : 'الفصول';
@@ -169,6 +169,8 @@ class AppStrings {
   String get data => isEnglish ? 'Data' : 'البيانات';
   String get addDemoData =>
       isEnglish ? 'Add demo data' : 'إضافة بيانات تجريبية';
+  String get demoDataAdded =>
+      isEnglish ? 'Demo data has been added.' : 'تمت إضافة البيانات التجريبية.';
   String get clearLocalData =>
       isEnglish ? 'Clear all local data' : 'مسح كل البيانات المحلية';
   String get notificationsDenied => isEnglish

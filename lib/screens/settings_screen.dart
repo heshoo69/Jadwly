@@ -211,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: controller.addDemoData,
+                        onPressed: () => _addDemoData(context, controller),
                         icon: const Icon(Icons.auto_awesome_outlined),
                         label: Text(strings.addDemoData),
                       ),
@@ -347,6 +347,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _addDemoData(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final added = await controller.addDemoData();
+    if (!context.mounted || !added) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(AppStrings(controller.languageCode).demoDataAdded)),
+    );
   }
 
   Future<void> _chooseLanguage(

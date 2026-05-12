@@ -14,16 +14,16 @@ import 'package:jadwly/main.dart';
 import 'package:jadwly/services/storage_service.dart';
 
 void main() {
-  testWidgets('Jadwali shows Arabic home tab', (WidgetTester tester) async {
+  testWidgets('Jadwly shows Arabic home tab', (WidgetTester tester) async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final tempDir = await Directory.systemTemp.createTemp('jadwali_test_');
+    final tempDir = await Directory.systemTemp.createTemp('jadwly_test_');
     await StorageService.init(testPath: tempDir.path);
 
     await tester.pumpWidget(const JadwaliApp());
     await tester.pump();
 
     expect(find.text('جدولي'), findsOneWidget);
-    expect(find.text('Jadwali'), findsOneWidget);
+    expect(find.text('Jadwly'), findsOneWidget);
 
     await Hive.close();
     await tempDir.delete(recursive: true);

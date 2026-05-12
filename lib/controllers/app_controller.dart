@@ -168,8 +168,18 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> clearAllData() async {
+    final preservedSettings = <String, Object>{
+      'languageCode': languageCode,
+      'notificationsEnabled': notificationsEnabled,
+      'reminderMinutes': reminderMinutes,
+      'weekStartDay': weekStartDay,
+      'showWeekends': showWeekends,
+      'scheduleViewMode': scheduleViewMode,
+    };
+
     await NotificationService.cancelAllClassReminders();
     await StorageService.clearAll();
+    await StorageService.settingsBox.putAll(preservedSettings);
     _load();
     notifyListeners();
   }
@@ -220,8 +230,10 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addDemoData() async {
-    if (classes.isNotEmpty || schedule.isNotEmpty || lessons.isNotEmpty) return;
+  Future<bool> addDemoData() async {
+    if (classes.isNotEmpty || schedule.isNotEmpty || lessons.isNotEmpty) {
+      return false;
+    }
 
     final now = DateTime.now();
     final classOneId = newId();
@@ -287,6 +299,7 @@ class AppController extends ChangeNotifier {
     _load();
     await _syncClassReminders();
     notifyListeners();
+    return true;
   }
 
   Future<void> _syncClassReminders() async {
