@@ -245,7 +245,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _confirmRestoreLatestBackup(context, controller),
                   onRestoreFromFile: () =>
                       _confirmRestoreFromFile(context, controller),
-                  onExportBackup: () => _exportBackup(context, controller),
+                  onExportBackup: (origin) => _exportBackup(
+                    context,
+                    controller,
+                    sharePositionOrigin: origin,
+                  ),
                   onSaveBackupToFiles: () =>
                       _saveBackupToFiles(context, controller),
                 ),
@@ -520,11 +524,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _exportBackup(
     BuildContext context,
-    AppController controller,
-  ) async {
+    AppController controller, {
+    Rect? sharePositionOrigin,
+  }) async {
     final strings = AppStrings(controller.languageCode);
     try {
-      final exported = await controller.exportLatestAutomaticBackup();
+      final exported = await controller.exportLatestAutomaticBackup(
+        sharePositionOrigin: sharePositionOrigin,
+      );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -616,7 +623,7 @@ class _BackupSettings extends StatelessWidget {
   final VoidCallback onRetry;
   final VoidCallback onRestoreLatest;
   final VoidCallback onRestoreFromFile;
-  final VoidCallback onExportBackup;
+  final ValueChanged<Rect?> onExportBackup;
   final VoidCallback onSaveBackupToFiles;
 
   @override
@@ -690,10 +697,16 @@ class _BackupSettings extends StatelessWidget {
             ),
             SizedBox(
               width: double.infinity,
-              child: TextButton.icon(
-                onPressed: onExportBackup,
-                icon: const Icon(Icons.ios_share_outlined),
-                label: Text(strings.exportBackupFile),
+              child: Builder(
+                builder: (buttonContext) {
+                  return TextButton.icon(
+                    onPressed: () => onExportBackup(
+                      _shareOriginForContext(buttonContext),
+                    ),
+                    icon: const Icon(Icons.ios_share_outlined),
+                    label: Text(strings.exportBackupFile),
+                  );
+                },
               ),
             ),
             SizedBox(
@@ -709,6 +722,12 @@ class _BackupSettings extends StatelessWidget {
       ],
     );
   }
+}
+
+Rect? _shareOriginForContext(BuildContext context) {
+  final renderObject = context.findRenderObject();
+  if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+  return renderObject.localToGlobal(Offset.zero) & renderObject.size;
 }
 
 class _SettingsSection extends StatelessWidget {

@@ -28,6 +28,16 @@ class BackupValidationException implements Exception {
   String toString() => message;
 }
 
+class BackupShareFile {
+  const BackupShareFile({
+    required this.bytes,
+    required this.fileName,
+  });
+
+  final Uint8List bytes;
+  final String fileName;
+}
+
 class BackupService {
   BackupService._();
 
@@ -42,11 +52,19 @@ class BackupService {
   static const _backupStatusKey = 'backup.status';
   static const _backupFailedKey = 'backup.failed';
   static const _backupErrorKey = 'backup.error';
+  static const _iCloudChannel = MethodChannel(
+    'com.hafdev.jadwly/icloud_backups',
+  );
 
   static Directory? _testBackupDirectory;
+  static bool? _testIsIOS;
 
   static void setTestBackupDirectory(Directory? directory) {
     _testBackupDirectory = directory;
+  }
+
+  static void setTestIsIOS(bool? isIOS) {
+    _testIsIOS = isIOS;
   }
 
   static Future<Map<String, dynamic>> createBackupJson() async {
@@ -77,7 +95,7 @@ class BackupService {
       await deleteOldAutomaticBackupsIfNeeded();
 
       var status = BackupStatus.localSaved;
-      if (Platform.isIOS) {
+      if (_isIOS) {
         final savedToICloud = await trySaveICloudBackupIfAvailable(backupJson);
         status = savedToICloud
             ? BackupStatus.automaticSaved
@@ -122,18 +140,22 @@ class BackupService {
   static Future<bool> trySaveICloudBackupIfAvailable(
     Map<String, dynamic> backupJson,
   ) async {
-    // TODO(iOS iCloud): Real iCloud Documents backup requires native setup:
-    // 1. Enable iCloud in Xcode Signing & Capabilities for Runner.
-    // 2. Create/select an iCloud container, likely iCloud.com.hafdev.jadwly.
-    // 3. Enable iCloud Documents for that container.
-    // 4. Add the required entitlements and optional NSUbiquitousContainers
-    //    Info.plist entries if Files app visibility is desired.
-    //
-    // A package such as icloud_storage_plus can write this JSON into the
-    // configured ubiquity container after those native capabilities exist.
-    // Until then, returning false is intentional so the app does not pretend
-    // that a cloud backup happened.
-    return false;
+    if (!_isIOS) return false;
+    try {
+      final createdAt = DateTime.parse(backupJson['createdAt'] as String);
+      final fileName = 'Jadwly_backup_${_fileNameTimestamp(createdAt)}'
+          '$_fileExtension';
+      final contents = const JsonEncoder.withIndent('  ').convert(backupJson);
+      final saved = await _iCloudChannel.invokeMethod<bool>('saveBackup', {
+        'fileName': fileName,
+        'contents': contents,
+      });
+      return saved == true;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
   }
 
   static Future<void> enableOrRespectAndroidAutoBackup() async {
@@ -169,6 +191,15 @@ class BackupService {
       // Keep the file modification date fallback when the JSON cannot be read.
     }
     return 'Jadwly_backup_${_fileNameTimestamp(createdAt)}$_fileExtension';
+  }
+
+  static Future<BackupShareFile?> latestAutomaticBackupShareFile() async {
+    final backup = await getLatestAutomaticBackupOrCreate();
+    if (backup == null) return null;
+    return BackupShareFile(
+      bytes: await backup.readAsBytes(),
+      fileName: await exportFileNameForBackup(backup),
+    );
   }
 
   static Future<List<File>> getAutomaticBackups() async {
@@ -311,11 +342,11 @@ class BackupService {
     if (languageCode == 'en') {
       switch (status) {
         case BackupStatus.automaticSaved:
-          return 'Saved automatically';
+          return 'Saved to iCloud';
         case BackupStatus.localSaved:
           return 'Saved locally';
         case BackupStatus.iCloudUnavailable:
-          return 'iCloud is unavailable';
+          return 'Saved locally; iCloud unavailable';
         case BackupStatus.androidSystemDependent:
           return 'System backup depends on device settings';
         case BackupStatus.failed:
@@ -324,11 +355,11 @@ class BackupService {
     }
     switch (status) {
       case BackupStatus.automaticSaved:
-        return 'محفوظة تلقائيًا';
+        return 'محفوظة في iCloud';
       case BackupStatus.localSaved:
         return 'محفوظة محليًا';
       case BackupStatus.iCloudUnavailable:
-        return 'iCloud غير متاح';
+        return 'محفوظة محليًا؛ iCloud غير متاح';
       case BackupStatus.androidSystemDependent:
         return 'النسخ الاحتياطي للنظام يعتمد على إعدادات الجهاز';
       case BackupStatus.failed:
@@ -378,10 +409,12 @@ class BackupService {
   }
 
   static String _platformName() {
-    if (Platform.isIOS) return 'ios';
+    if (_isIOS) return 'ios';
     if (Platform.isAndroid) return 'android';
     return Platform.operatingSystem;
   }
+
+  static bool get _isIOS => _testIsIOS ?? Platform.isIOS;
 
   static String _fileNameTimestamp(DateTime date) {
     final local = date.toLocal();

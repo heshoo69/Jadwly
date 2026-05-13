@@ -331,38 +331,50 @@ class AppController extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> retryAutomaticBackup() async {
+  Future<bool> retryAutomaticBackup({Rect? sharePositionOrigin}) async {
     final file = await BackupService.createAutomaticBackup();
     _load();
     notifyListeners();
     if (file != null) return true;
 
-    final latestBackup = await BackupService.getLatestAutomaticBackup();
-    if (latestBackup != null) {
-      final fileName = await BackupService.exportFileNameForBackup(
-        latestBackup,
-      );
+    final shareFile = await BackupService.latestAutomaticBackupShareFile();
+    if (shareFile != null) {
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(latestBackup.path, name: fileName)],
+          files: [
+            XFile.fromData(
+              shareFile.bytes,
+              mimeType: 'application/json',
+              name: shareFile.fileName,
+            ),
+          ],
+          fileNameOverrides: [shareFile.fileName],
           text: 'Jadwly backup',
+          sharePositionOrigin: sharePositionOrigin,
         ),
       );
     }
     return false;
   }
 
-  Future<bool> exportLatestAutomaticBackup() async {
-    final backup = await BackupService.getLatestAutomaticBackupOrCreate();
+  Future<bool> exportLatestAutomaticBackup({Rect? sharePositionOrigin}) async {
+    final shareFile = await BackupService.latestAutomaticBackupShareFile();
     _load();
     notifyListeners();
-    if (backup == null) return false;
-    final fileName = await BackupService.exportFileNameForBackup(backup);
+    if (shareFile == null) return false;
 
     await SharePlus.instance.share(
       ShareParams(
-        files: [XFile(backup.path, name: fileName)],
+        files: [
+          XFile.fromData(
+            shareFile.bytes,
+            mimeType: 'application/json',
+            name: shareFile.fileName,
+          ),
+        ],
+        fileNameOverrides: [shareFile.fileName],
         text: 'Jadwly backup',
+        sharePositionOrigin: sharePositionOrigin,
       ),
     );
     return true;

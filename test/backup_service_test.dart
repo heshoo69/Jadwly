@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:jadwly/models/lesson_record.dart';
@@ -25,10 +26,16 @@ void main() {
   });
 
   tearDown(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      null,
+    );
     await Hive.close();
     await hiveDir.delete(recursive: true);
     await backupDir.delete(recursive: true);
     BackupService.setTestBackupDirectory(null);
+    BackupService.setTestIsIOS(null);
   });
 
   test('createBackupJson includes required top-level fields and arrays',
@@ -99,6 +106,66 @@ void main() {
     expect(
       fileName,
       matches(RegExp(r'^Jadwly_backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.json$')),
+    );
+  });
+
+  test('latestAutomaticBackupShareFile returns named json bytes', () async {
+    await _seedData();
+    await BackupService.createAutomaticBackup();
+
+    final shareFile = await BackupService.latestAutomaticBackupShareFile();
+
+    expect(shareFile, isNotNull);
+    expect(shareFile!.fileName, startsWith('Jadwly_backup_'));
+    expect(shareFile.fileName, endsWith('.json'));
+    final decoded = jsonDecode(utf8.decode(shareFile.bytes));
+    expect(decoded, isA<Map<String, dynamic>>());
+    expect((decoded as Map<String, dynamic>)['appName'], 'Jadwly');
+  });
+
+  test('createAutomaticBackup marks iCloud saved when channel succeeds',
+      () async {
+    BackupService.setTestIsIOS(true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async {
+        expect(call.method, 'saveBackup');
+        expect(call.arguments, isA<Map<Object?, Object?>>());
+        return true;
+      },
+    );
+    await _seedData();
+
+    final backup = await BackupService.createAutomaticBackup();
+
+    expect(backup, isNotNull);
+    expect(BackupService.automaticBackupFailed, isFalse);
+    expect(BackupService.backupStatusLabel('en'), 'Saved to iCloud');
+    expect(BackupService.backupStatusLabel('ar'), 'محفوظة في iCloud');
+  });
+
+  test('createAutomaticBackup keeps local success when iCloud is unavailable',
+      () async {
+    BackupService.setTestIsIOS(true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async => false,
+    );
+    await _seedData();
+
+    final backup = await BackupService.createAutomaticBackup();
+
+    expect(backup, isNotNull);
+    expect(BackupService.automaticBackupFailed, isFalse);
+    expect(
+      BackupService.backupStatusLabel('en'),
+      'Saved locally; iCloud unavailable',
+    );
+    expect(
+      BackupService.backupStatusLabel('ar'),
+      'محفوظة محليًا؛ iCloud غير متاح',
     );
   });
 
