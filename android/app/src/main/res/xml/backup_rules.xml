@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include app-local Hive data and automatic backup JSON files in Android
+         system backup. This is controlled by the user's Android backup
+         settings and does not use Google Sign-In or the Google Drive API. -->
+    <include domain="file" path="." />
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
+</full-backup-content>

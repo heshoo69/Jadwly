@@ -181,6 +181,58 @@ class AppStrings {
       ? 'Classes, schedule, and lesson history will be deleted from this device.'
       : 'سيتم حذف الفصول والجدول وسجل الدروس من هذا الجهاز.';
   String get clear => isEnglish ? 'Clear' : 'مسح';
+  String get backup => isEnglish ? 'Backup' : 'النسخ الاحتياطي';
+  String get backupDescription => isEnglish
+      ? 'A backup is saved automatically after every change.'
+      : 'يتم حفظ نسخة احتياطية تلقائيًا بعد كل تعديل.';
+  String get lastBackup => isEnglish ? 'Last backup:' : 'آخر نسخة احتياطية:';
+  String get noBackupYet =>
+      isEnglish ? 'No automatic backup yet' : 'لا توجد نسخة احتياطية بعد';
+  String get automaticBackupFailed => isEnglish
+      ? 'Automatic backup could not be created'
+      : 'تعذر إنشاء النسخة الاحتياطية تلقائيًا';
+  String get saveBackupNow => isEnglish ? 'Save a copy now' : 'حفظ نسخة الآن';
+  String get restoreLatestAutomaticBackup => isEnglish
+      ? 'Restore latest automatic backup'
+      : 'استعادة آخر نسخة تلقائية';
+  String get restoreBackupTitle =>
+      isEnglish ? 'Restore backup?' : 'استعادة النسخة الاحتياطية؟';
+  String get restoreBackupMessage => isEnglish
+      ? 'Restoring the backup will replace the current data inside the app. Do you want to continue?'
+      : 'استعادة النسخة الاحتياطية ستستبدل البيانات الحالية داخل التطبيق.\nهل تريد المتابعة؟';
+  String get restore => isEnglish ? 'Restore' : 'استعادة';
+  String get backupRestored => isEnglish
+      ? 'Backup has been restored.'
+      : 'تمت استعادة النسخة الاحتياطية.';
+  String get backupSaved =>
+      isEnglish ? 'Backup has been saved.' : 'تم حفظ النسخة الاحتياطية.';
+  String get invalidBackupFile => isEnglish
+      ? 'The backup file is invalid'
+      : 'ملف النسخة الاحتياطية غير صالح';
+  String get unsupportedBackupVersion => isEnglish
+      ? 'The backup version is not supported'
+      : 'إصدار النسخة الاحتياطية غير مدعوم';
+  String get restoreBackupFailed =>
+      isEnglish ? 'Could not restore data' : 'تعذر استعادة البيانات';
+  String get advancedOptions =>
+      isEnglish ? 'Advanced options' : 'خيارات متقدمة';
+  String get restoreFromFile =>
+      isEnglish ? 'Restore from file' : 'استعادة من ملف';
+  String get exportBackupFile =>
+      isEnglish ? 'Share backup file' : 'مشاركة ملف النسخة الاحتياطية';
+  String get backupFileReady =>
+      isEnglish ? 'Backup file is ready.' : 'تم تجهيز ملف النسخة الاحتياطية';
+  String get exportBackupFailed => isEnglish
+      ? 'Could not export the backup file'
+      : 'تعذر تصدير ملف النسخة الاحتياطية';
+  String get saveBackupToFiles =>
+      isEnglish ? 'Save to Files' : 'حفظ في الملفات';
+  String get backupFileSaved => isEnglish
+      ? 'Backup file has been saved.'
+      : 'تم حفظ ملف النسخة الاحتياطية';
+  String get saveBackupFileFailed => isEnglish
+      ? 'Could not save the backup file'
+      : 'تعذر حفظ ملف النسخة الاحتياطية';
 
   String get addClassTitle => isEnglish ? 'Add class' : 'إضافة فصل';
   String get editClassTitle => isEnglish ? 'Edit class' : 'تعديل فصل';

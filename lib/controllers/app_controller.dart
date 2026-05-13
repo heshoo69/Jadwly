@@ -1,10 +1,15 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/lesson_record.dart';
 import '../models/lesson_status.dart';
 import '../models/schedule_item.dart';
 import '../models/session_type.dart';
 import '../models/teacher_class.dart';
+import '../services/backup_service.dart';
 import '../services/date_helpers.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
@@ -25,6 +30,12 @@ class AppController extends ChangeNotifier {
   int weekStartDay = DateTime.sunday;
   bool showWeekends = false;
   String scheduleViewMode = 'weeklyGrid';
+
+  DateTime? get lastBackupDate => BackupService.getLastBackupDate();
+  bool get automaticBackupFailed => BackupService.automaticBackupFailed;
+  String get lastBackupError => BackupService.lastBackupError;
+  String getBackupStatusLabel() =>
+      BackupService.backupStatusLabel(languageCode);
 
   void _load() {
     classes = StorageService.classesBox.values.toList()
@@ -102,6 +113,7 @@ class AppController extends ChangeNotifier {
     await StorageService.classesBox.put(item.id, item);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -116,6 +128,7 @@ class AppController extends ChangeNotifier {
     }
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -123,6 +136,7 @@ class AppController extends ChangeNotifier {
     await StorageService.scheduleBox.put(item.id, item);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -130,6 +144,7 @@ class AppController extends ChangeNotifier {
     await StorageService.scheduleBox.delete(id);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -137,6 +152,7 @@ class AppController extends ChangeNotifier {
     await StorageService.lessonsBox.put(record.id, record);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -144,6 +160,7 @@ class AppController extends ChangeNotifier {
     await StorageService.lessonsBox.put(record.id, record);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -151,12 +168,14 @@ class AppController extends ChangeNotifier {
     await StorageService.lessonsBox.delete(id);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
   Future<void> saveTeacherName(String name) async {
     await StorageService.settingsBox.put('teacherName', name.trim());
     _load();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -164,10 +183,12 @@ class AppController extends ChangeNotifier {
     await StorageService.settingsBox.put('languageCode', code);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
   Future<void> clearAllData() async {
+    final backupMetadata = BackupService.backupMetadataSnapshot();
     final preservedSettings = <String, Object>{
       'languageCode': languageCode,
       'notificationsEnabled': notificationsEnabled,
@@ -180,6 +201,7 @@ class AppController extends ChangeNotifier {
     await NotificationService.cancelAllClassReminders();
     await StorageService.clearAll();
     await StorageService.settingsBox.putAll(preservedSettings);
+    await BackupService.restoreBackupMetadataSnapshot(backupMetadata);
     _load();
     notifyListeners();
   }
@@ -189,6 +211,7 @@ class AppController extends ChangeNotifier {
       await StorageService.settingsBox.put('notificationsEnabled', false);
       await NotificationService.cancelAllClassReminders();
       _load();
+      await _createAutomaticBackup();
       notifyListeners();
       return true;
     }
@@ -201,6 +224,7 @@ class AppController extends ChangeNotifier {
     } else {
       await NotificationService.cancelAllClassReminders();
     }
+    await _createAutomaticBackup();
     notifyListeners();
     return granted;
   }
@@ -209,24 +233,28 @@ class AppController extends ChangeNotifier {
     await StorageService.settingsBox.put('reminderMinutes', minutes);
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
   Future<void> setWeekStartDay(int day) async {
     await StorageService.settingsBox.put('weekStartDay', day);
     _load();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
   Future<void> setShowWeekends(bool value) async {
     await StorageService.settingsBox.put('showWeekends', value);
     _load();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
   Future<void> setScheduleViewMode(String mode) async {
     await StorageService.settingsBox.put('scheduleViewMode', mode);
     _load();
+    await _createAutomaticBackup();
     notifyListeners();
   }
 
@@ -298,6 +326,98 @@ class AppController extends ChangeNotifier {
     );
     _load();
     await _syncClassReminders();
+    await _createAutomaticBackup();
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> retryAutomaticBackup() async {
+    final file = await BackupService.createAutomaticBackup();
+    _load();
+    notifyListeners();
+    if (file != null) return true;
+
+    final latestBackup = await BackupService.getLatestAutomaticBackup();
+    if (latestBackup != null) {
+      final fileName = await BackupService.exportFileNameForBackup(
+        latestBackup,
+      );
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(latestBackup.path, name: fileName)],
+          text: 'Jadwly backup',
+        ),
+      );
+    }
+    return false;
+  }
+
+  Future<bool> exportLatestAutomaticBackup() async {
+    final backup = await BackupService.getLatestAutomaticBackupOrCreate();
+    _load();
+    notifyListeners();
+    if (backup == null) return false;
+    final fileName = await BackupService.exportFileNameForBackup(backup);
+
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(backup.path, name: fileName)],
+        text: 'Jadwly backup',
+      ),
+    );
+    return true;
+  }
+
+  Future<bool?> saveLatestAutomaticBackupToFiles() async {
+    final backup = await BackupService.getLatestAutomaticBackupOrCreate();
+    _load();
+    notifyListeners();
+    if (backup == null) return false;
+
+    final savedPath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Jadwly backup',
+      fileName: await BackupService.exportFileNameForBackup(backup),
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      bytes: await backup.readAsBytes(),
+    );
+    return savedPath == null ? null : true;
+  }
+
+  Future<void> restoreLatestAutomaticBackup() async {
+    await BackupService.restoreLatestAutomaticBackup();
+    _load();
+    await _syncClassReminders();
+    notifyListeners();
+  }
+
+  Future<bool> restoreBackupFromFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return false;
+
+    final pickedFile = result.files.single;
+    final bytes = pickedFile.bytes;
+    final path = pickedFile.path;
+    final contents = bytes != null
+        ? utf8.decode(bytes)
+        : path == null
+            ? null
+            : await XFile(path).readAsString();
+    if (contents == null) {
+      throw const BackupValidationException('ملف النسخة الاحتياطية غير صالح');
+    }
+    final decoded = jsonDecode(contents);
+    if (decoded is! Map<String, dynamic>) {
+      throw const BackupValidationException('ملف النسخة الاحتياطية غير صالح');
+    }
+    BackupService.validateBackupJson(decoded);
+    await BackupService.applyBackupToLocalStorage(decoded);
+    _load();
+    await _syncClassReminders();
     notifyListeners();
     return true;
   }
@@ -311,5 +431,9 @@ class AppController extends ChangeNotifier {
       reminderMinutes: reminderMinutes,
       languageCode: languageCode,
     );
+  }
+
+  Future<void> _createAutomaticBackup() async {
+    await BackupService.createAutomaticBackup();
   }
 }

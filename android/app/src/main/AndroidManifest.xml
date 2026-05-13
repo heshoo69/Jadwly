@@ -5,7 +5,15 @@
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules">
+        <!-- Android Auto Backup depends on the user's device backup settings.
+             Restore may happen automatically when installing Jadwly on a new
+             Android device if system backup is enabled. The app cannot create
+             a visible Google Drive backup file without Google Sign-In or
+             Google Drive API permissions, which are intentionally not used. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

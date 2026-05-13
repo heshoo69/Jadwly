@@ -233,6 +233,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               _SettingsSection(
+                title: strings.backup,
+                child: _BackupSettings(
+                  controller: controller,
+                  lastBackupText: _formatBackupDate(
+                    controller.lastBackupDate,
+                    controller.languageCode,
+                  ),
+                  onRetry: () => _retryBackup(context, controller),
+                  onRestoreLatest: () =>
+                      _confirmRestoreLatestBackup(context, controller),
+                  onRestoreFromFile: () =>
+                      _confirmRestoreFromFile(context, controller),
+                  onExportBackup: () => _exportBackup(context, controller),
+                  onSaveBackupToFiles: () =>
+                      _saveBackupToFiles(context, controller),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SettingsSection(
                 title: strings.supportAndContact,
                 accent: true,
                 child: Column(
@@ -432,6 +451,263 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirmed == true) controller.clearAllData();
+  }
+
+  String _formatBackupDate(DateTime? date, String languageCode) {
+    final strings = AppStrings(languageCode);
+    if (date == null) return strings.noBackupYet;
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${formatLocalizedDate(date, languageCode)} $hour:$minute';
+  }
+
+  Future<void> _retryBackup(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    final saved = await controller.retryAutomaticBackup();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text(saved ? strings.backupSaved : strings.automaticBackupFailed),
+      ),
+    );
+  }
+
+  Future<void> _confirmRestoreLatestBackup(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final confirmed = await _confirmRestore(context, controller);
+    if (confirmed != true) return;
+    final strings = AppStrings(controller.languageCode);
+    try {
+      await controller.restoreLatestAutomaticBackup();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.backupRestored)),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_restoreErrorMessage(strings, error))),
+      );
+    }
+  }
+
+  Future<void> _confirmRestoreFromFile(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final confirmed = await _confirmRestore(context, controller);
+    if (confirmed != true) return;
+    final strings = AppStrings(controller.languageCode);
+    try {
+      final restored = await controller.restoreBackupFromFile();
+      if (!context.mounted || !restored) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.backupRestored)),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_restoreErrorMessage(strings, error))),
+      );
+    }
+  }
+
+  Future<void> _exportBackup(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    try {
+      final exported = await controller.exportLatestAutomaticBackup();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            exported ? strings.backupFileReady : strings.exportBackupFailed,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.exportBackupFailed)),
+      );
+    }
+  }
+
+  Future<void> _saveBackupToFiles(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    try {
+      final saved = await controller.saveLatestAutomaticBackupToFiles();
+      if (!context.mounted || saved == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved ? strings.backupFileSaved : strings.saveBackupFileFailed,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.saveBackupFileFailed)),
+      );
+    }
+  }
+
+  Future<bool?> _confirmRestore(
+    BuildContext context,
+    AppController controller,
+  ) {
+    final strings = AppStrings(controller.languageCode);
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(strings.restoreBackupTitle),
+        content: Text(strings.restoreBackupMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(strings.restore),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _restoreErrorMessage(AppStrings strings, Object error) {
+    final message = error.toString();
+    if (message.contains('إصدار النسخة الاحتياطية غير مدعوم')) {
+      return strings.unsupportedBackupVersion;
+    }
+    if (message.contains('ملف النسخة الاحتياطية غير صالح')) {
+      return strings.invalidBackupFile;
+    }
+    return strings.restoreBackupFailed;
+  }
+}
+
+class _BackupSettings extends StatelessWidget {
+  const _BackupSettings({
+    required this.controller,
+    required this.lastBackupText,
+    required this.onRetry,
+    required this.onRestoreLatest,
+    required this.onRestoreFromFile,
+    required this.onExportBackup,
+    required this.onSaveBackupToFiles,
+  });
+
+  final AppController controller;
+  final String lastBackupText;
+  final VoidCallback onRetry;
+  final VoidCallback onRestoreLatest;
+  final VoidCallback onRestoreFromFile;
+  final VoidCallback onExportBackup;
+  final VoidCallback onSaveBackupToFiles;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings(controller.languageCode);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings.backupDescription,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.backup_outlined),
+          title: Text(strings.lastBackup),
+          subtitle: Text(lastBackupText),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.cloud_done_outlined),
+          title: Text(controller.getBackupStatusLabel()),
+        ),
+        if (controller.automaticBackupFailed) ...[
+          const SizedBox(height: 8),
+          Text(
+            strings.automaticBackupFailed,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(strings.saveBackupNow),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onRestoreLatest,
+            icon: const Icon(Icons.restore_outlined),
+            label: Text(strings.restoreLatestAutomaticBackup),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.tune_outlined),
+          title: Text(strings.advancedOptions),
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: onSaveBackupToFiles,
+                icon: const Icon(Icons.folder_copy_outlined),
+                label: Text(strings.saveBackupToFiles),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: onExportBackup,
+                icon: const Icon(Icons.ios_share_outlined),
+                label: Text(strings.exportBackupFile),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: onRestoreFromFile,
+                icon: const Icon(Icons.upload_file_outlined),
+                label: Text(strings.restoreFromFile),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
