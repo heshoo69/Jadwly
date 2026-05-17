@@ -49,18 +49,13 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       extendBody: true,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(titles[_index]),
-            Text(
-              strings.appName,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+        title: Text(
+          titles[_index],
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         centerTitle: false,
       ),

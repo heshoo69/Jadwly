@@ -169,6 +169,137 @@ void main() {
     );
   });
 
+  test('restoreLatestAutomaticBackup restores latest iCloud backup on iOS',
+      () async {
+    await _seedData();
+    final iCloudBackup = await BackupService.createBackupJson();
+    await StorageService.clearAll();
+    BackupService.setTestIsIOS(true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async {
+        expect(call.method, 'latestBackup');
+        return {
+          'fileName': 'Jadwly_backup_2026-05-12_08-30.json',
+          'contents': jsonEncode(iCloudBackup),
+        };
+      },
+    );
+
+    await BackupService.restoreLatestAutomaticBackup();
+
+    expect(StorageService.classesBox.length, 1);
+    expect(StorageService.scheduleBox.length, 1);
+    expect(StorageService.lessonsBox.length, 1);
+    expect(StorageService.settingsBox.get('languageCode'), 'en');
+  });
+
+  test('restoreLatestAutomaticBackup ignores stale unavailable iCloud status',
+      () async {
+    BackupService.setTestIsIOS(true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async {
+        expect(call.method, 'saveBackup');
+        return false;
+      },
+    );
+    await _seedData();
+    await BackupService.createAutomaticBackup();
+    expect(
+      BackupService.backupStatusLabel('en'),
+      'Saved locally; iCloud unavailable',
+    );
+
+    final iCloudBackup = jsonDecode(
+      jsonEncode(await BackupService.createBackupJson()),
+    ) as Map<String, dynamic>;
+    (iCloudBackup['settings'] as Map<String, dynamic>)['teacherName'] =
+        'iCloud Teacher';
+    await StorageService.classesBox.clear();
+    await StorageService.scheduleBox.clear();
+    await StorageService.lessonsBox.clear();
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async {
+        expect(call.method, 'latestBackup');
+        return {
+          'fileName': 'Jadwly_backup_2026-05-12_08-30.json',
+          'contents': jsonEncode(iCloudBackup),
+        };
+      },
+    );
+
+    await BackupService.restoreLatestAutomaticBackup();
+
+    expect(StorageService.classesBox.length, 1);
+    expect(StorageService.scheduleBox.length, 1);
+    expect(StorageService.lessonsBox.length, 1);
+    expect(StorageService.settingsBox.get('teacherName'), 'iCloud Teacher');
+    expect(
+      BackupService.backupStatusLabel('en'),
+      'Saved locally; iCloud unavailable',
+    );
+  });
+
+  test('restoreLatestAutomaticBackup falls back to local backup on iOS',
+      () async {
+    await _seedData();
+    await BackupService.createAutomaticBackup();
+    await StorageService.clearAll();
+    BackupService.setTestIsIOS(true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async {
+        expect(call.method, 'latestBackup');
+        return null;
+      },
+    );
+
+    await BackupService.restoreLatestAutomaticBackup();
+
+    expect(StorageService.classesBox.length, 1);
+    expect(StorageService.scheduleBox.length, 1);
+    expect(StorageService.lessonsBox.length, 1);
+    expect(StorageService.settingsBox.get('languageCode'), 'en');
+  });
+
+  test('restoreLatestAutomaticBackup rejects invalid iCloud backup on iOS',
+      () async {
+    await _seedData();
+    BackupService.setTestIsIOS(true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('com.hafdev.jadwly/icloud_backups'),
+      (call) async {
+        expect(call.method, 'latestBackup');
+        return {
+          'fileName': 'invalid.json',
+          'contents': jsonEncode({
+            'appName': 'Other',
+            'backupVersion': 1,
+            'classes': [],
+            'scheduleItems': [],
+            'lessonRecords': [],
+            'settings': {},
+          }),
+        };
+      },
+    );
+
+    await expectLater(
+      BackupService.restoreLatestAutomaticBackup(),
+      throwsA(isA<BackupValidationException>()),
+    );
+    expect(StorageService.classesBox.length, 1);
+    expect(StorageService.settingsBox.get('languageCode'), 'en');
+  });
+
   test('validateBackupJson rejects invalid files', () {
     expect(
       () => BackupService.validateBackupJson({

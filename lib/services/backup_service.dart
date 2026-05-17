@@ -230,6 +230,13 @@ class BackupService {
   }
 
   static Future<void> restoreLatestAutomaticBackup() async {
+    final iCloudBackup = await _latestICloudBackupJsonIfAvailable();
+    if (iCloudBackup != null) {
+      validateBackupJson(iCloudBackup);
+      await applyBackupToLocalStorage(iCloudBackup);
+      return;
+    }
+
     final file = await getLatestAutomaticBackup();
     if (file == null) {
       throw const BackupValidationException('ملف النسخة الاحتياطية غير صالح');
@@ -241,6 +248,26 @@ class BackupService {
     }
     validateBackupJson(decoded);
     await applyBackupToLocalStorage(decoded);
+  }
+
+  static Future<Map<String, dynamic>?>
+      _latestICloudBackupJsonIfAvailable() async {
+    if (!_isIOS) return null;
+    try {
+      final backup = await _iCloudChannel.invokeMapMethod<String, String>(
+        'latestBackup',
+      );
+      final contents = backup?['contents'];
+      if (contents == null || contents.isEmpty) return null;
+      final decoded = jsonDecode(contents);
+      return _asMap(decoded);
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    } on FormatException {
+      throw const BackupValidationException('ملف النسخة الاحتياطية غير صالح');
+    }
   }
 
   static void validateBackupJson(Map<String, dynamic> backupJson) {
