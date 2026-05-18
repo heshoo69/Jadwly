@@ -48,6 +48,24 @@ String normalizeClockTimeAmPm(String value) {
   return formatClockTimeAmPm(parsed.hour, parsed.minute);
 }
 
+String normalizeLegacyScheduleEndTime({
+  required String startTime,
+  required String endTime,
+}) {
+  final start = parseClockTime(startTime);
+  final end = parseClockTime(endTime);
+  if (start == null || end == null) return normalizeClockTimeAmPm(endTime);
+
+  final endText = endTime.trim().toUpperCase();
+  final looksLikeLegacyNoonBug =
+      start.hour == 11 && end.hour == 0 && endText.startsWith('12:');
+  if (looksLikeLegacyNoonBug) {
+    return formatClockTimeAmPm(12, end.minute);
+  }
+
+  return normalizeClockTimeAmPm(endTime);
+}
+
 int minutesSinceMidnight(String value) {
   final parsed = parseClockTime(value);
   if (parsed == null) return 24 * 60;

@@ -27,6 +27,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   late final TextEditingController _endController;
   late final TextEditingController _subjectController;
   late final TextEditingController _roomController;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -93,8 +94,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                         child: Text(
                             localizedDayName(day, controller.languageCode))))
                     .toList(),
-                onChanged: (value) =>
-                    setState(() => _dayOfWeek = value ?? _dayOfWeek),
+                onChanged: (value) {
+                  setState(() => _dayOfWeek = value ?? _dayOfWeek);
+                  _formKey.currentState?.validate();
+                },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -123,14 +126,23 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               const SizedBox(height: 12),
               AppTextField(
                 controller: _periodController,
-                label: strings.periodNumberOptional,
+                label: strings.periodNumberRequiredLabel,
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   final text = value?.trim() ?? '';
-                  if (text.isEmpty) return null;
-                  return int.tryParse(text) == null
-                      ? strings.invalidNumber
-                      : null;
+                  if (text.isEmpty) return strings.periodNumberRequired;
+                  final periodNumber = int.tryParse(text);
+                  if (periodNumber == null) return strings.invalidNumber;
+                  if (periodNumber < 1 || periodNumber > 7) {
+                    return strings.periodNumberOutOfRange;
+                  }
+                  final hasConflict = controller.hasSchedulePeriodConflict(
+                    dayOfWeek: _dayOfWeek,
+                    periodNumber: periodNumber,
+                    excludeId: widget.scheduleItem?.id,
+                  );
+                  if (hasConflict) return strings.periodNumberAlreadyUsed;
+                  return null;
                 },
               ),
               const SizedBox(height: 12),
@@ -159,9 +171,14 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   suffixIcon: const Icon(Icons.schedule_outlined),
                 ),
                 onTap: () => _pickTime(_endController),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? strings.endTimeRequired
-                    : null,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return strings.endTimeRequired;
+                  }
+                  return _isEndTimeAfterStart()
+                      ? null
+                      : strings.endTimeMustBeAfterStartTime;
+                },
               ),
               const SizedBox(height: 12),
               AppTextField(
@@ -176,8 +193,17 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   controller: _roomController, label: strings.roomOptional),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save_outlined),
+                onPressed: _isSaving ? null : _save,
+                icon: _isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      )
+                    : const Icon(Icons.save_outlined),
                 label: Text(strings.save),
               ),
             ],
@@ -189,12 +215,13 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
     final existing = widget.scheduleItem;
     final periodText = _periodController.text.trim();
     final item = ScheduleItem(
       id: existing?.id ?? newId(),
       dayOfWeek: _dayOfWeek,
-      periodNumber: periodText.isEmpty ? 0 : int.parse(periodText),
+      periodNumber: int.parse(periodText),
       startTime: _startController.text.trim(),
       endTime: _endController.text.trim(),
       subject: _subjectController.text.trim(),
@@ -203,8 +230,17 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
           ? null
           : _roomController.text.trim(),
     );
-    await context.read<AppController>().saveScheduleItem(item);
-    if (mounted) Navigator.pop(context);
+    try {
+      await context.read<AppController>().saveScheduleItem(item);
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.read(context).savePeriodFailed)),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickTime(TextEditingController targetController) async {
@@ -231,5 +267,16 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
     if (picked == null) return;
     targetController.text = formatClockTimeAmPm(picked.hour, picked.minute);
+    _formKey.currentState?.validate();
+  }
+
+  bool _isEndTimeAfterStart() {
+    final start = parseClockTime(_startController.text);
+    final end = parseClockTime(_endController.text);
+    if (start == null || end == null) return true;
+
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    return endMinutes > startMinutes;
   }
 }

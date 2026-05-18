@@ -1,15 +1,21 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/lesson_record.dart';
 import '../models/lesson_status.dart';
 import '../models/schedule_item.dart';
 import '../models/session_type.dart';
 import '../models/teacher_class.dart';
+import '../l10n/app_strings.dart';
+import '../services/app_feedback_service.dart';
+import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../services/cloud_sync_service.dart';
 import '../services/date_helpers.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
@@ -18,7 +24,24 @@ import '../services/time_helpers.dart';
 class AppController extends ChangeNotifier {
   AppController() {
     _load();
+    _authService = AuthService.instanceOrNull;
+    _signedInUserEmail = _authService?.currentUser?.email;
+    _authSubscription = _authService?.authStateChanges.listen((event) {
+      _signedInUserEmail = event.session?.user.email;
+      notifyListeners();
+      if (event.session != null) {
+        unawaited(syncLocalDataToCloud(silent: true));
+      }
+    });
   }
+
+  AuthService? _authService;
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _syncingCloud = false;
+  String? _signedInUserEmail;
+  DateTime? _lastCloudSyncAt;
+  DateTime? _cloudDeletionScheduledFor;
+  String? _cloudSyncError;
 
   List<TeacherClass> classes = [];
   List<ScheduleItem> schedule = [];
@@ -36,6 +59,12 @@ class AppController extends ChangeNotifier {
   String get lastBackupError => BackupService.lastBackupError;
   String getBackupStatusLabel() =>
       BackupService.backupStatusLabel(languageCode);
+  bool get isSignedIn => _signedInUserEmail != null;
+  bool get isSyncingCloud => _syncingCloud;
+  String? get signedInUserEmail => _signedInUserEmail;
+  DateTime? get lastCloudSyncAt => _lastCloudSyncAt;
+  DateTime? get cloudDeletionScheduledFor => _cloudDeletionScheduledFor;
+  String? get cloudSyncError => _cloudSyncError;
 
   void _load() {
     classes = StorageService.classesBox.values.toList()
@@ -86,6 +115,17 @@ class AppController extends ChangeNotifier {
       });
   }
 
+  bool hasSchedulePeriodConflict({
+    required int dayOfWeek,
+    required int periodNumber,
+    String? excludeId,
+  }) {
+    return schedule.any((item) =>
+        item.dayOfWeek == dayOfWeek &&
+        item.periodNumber == periodNumber &&
+        item.id != excludeId);
+  }
+
   List<int> get visibleWeekDays {
     final ordered = <int>[];
     for (var offset = 0; offset < 7; offset++) {
@@ -115,9 +155,18 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_syncTeacherClassToCloud(item));
   }
 
   Future<void> deleteTeacherClass(String id) async {
+    final deletedScheduleIds = schedule
+        .where((entry) => entry.classId == id)
+        .map((entry) => entry.id)
+        .toList();
+    final deletedLessonIds = lessons
+        .where((entry) => entry.classId == id)
+        .map((entry) => entry.id)
+        .toList();
     await StorageService.classesBox.delete(id);
     for (final item
         in schedule.where((entry) => entry.classId == id).toList()) {
@@ -130,6 +179,11 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_deleteClassTreeFromCloud(
+      id,
+      scheduleIds: deletedScheduleIds,
+      lessonIds: deletedLessonIds,
+    ));
   }
 
   Future<void> saveScheduleItem(ScheduleItem item) async {
@@ -138,6 +192,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_syncScheduleItemToCloud(item));
   }
 
   Future<void> deleteScheduleItem(String id) async {
@@ -146,6 +201,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_deleteScheduleItemFromCloud(id));
   }
 
   Future<void> addLesson(LessonRecord record) async {
@@ -154,6 +210,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_syncLessonRecordToCloud(record));
   }
 
   Future<void> updateLesson(LessonRecord record) async {
@@ -162,6 +219,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_syncLessonRecordToCloud(record));
   }
 
   Future<void> deleteLesson(String id) async {
@@ -170,13 +228,16 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_deleteLessonRecordFromCloud(id));
   }
 
   Future<void> saveTeacherName(String name) async {
-    await StorageService.settingsBox.put('teacherName', name.trim());
+    final trimmedName = name.trim();
+    await StorageService.settingsBox.put('teacherName', trimmedName);
     _load();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_saveProfileNameToCloud(trimmedName));
   }
 
   Future<void> saveLanguageCode(String code) async {
@@ -213,6 +274,7 @@ class AppController extends ChangeNotifier {
       _load();
       await _createAutomaticBackup();
       notifyListeners();
+      unawaited(_saveReminderSettingsToCloud());
       return true;
     }
 
@@ -226,6 +288,7 @@ class AppController extends ChangeNotifier {
     }
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_saveReminderSettingsToCloud());
     return granted;
   }
 
@@ -235,6 +298,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(_saveReminderSettingsToCloud());
   }
 
   Future<void> setWeekStartDay(int day) async {
@@ -401,6 +465,7 @@ class AppController extends ChangeNotifier {
     _load();
     await _syncClassReminders();
     notifyListeners();
+    unawaited(_replaceCloudWithRestoredLocalData());
   }
 
   Future<bool> restoreBackupFromFile() async {
@@ -431,7 +496,248 @@ class AppController extends ChangeNotifier {
     _load();
     await _syncClassReminders();
     notifyListeners();
+    unawaited(_replaceCloudWithRestoredLocalData());
     return true;
+  }
+
+  Future<void> syncLocalDataToCloud({bool silent = false}) async {
+    if (_authService?.currentUser == null) return;
+    if (_syncingCloud) return;
+    _syncingCloud = true;
+    _cloudSyncError = null;
+    notifyListeners();
+    try {
+      await CloudSyncService().uploadLocalData();
+      _lastCloudSyncAt = DateTime.now();
+      if (!silent) {
+        AppFeedbackService.showSnackBar(
+          AppStrings(languageCode).cloudSyncComplete,
+        );
+      }
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      if (!silent) {
+        AppFeedbackService.showSnackBar(
+          AppStrings(languageCode).cloudSyncFailed,
+        );
+      }
+    } finally {
+      _syncingCloud = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _replaceCloudWithRestoredLocalData() async {
+    if (_authService?.currentUser == null) return;
+    if (_syncingCloud) return;
+    _syncingCloud = true;
+    _cloudSyncError = null;
+    notifyListeners();
+    try {
+      await CloudSyncService().replaceCloudWithLocalData();
+      _cloudDeletionScheduledFor = null;
+      _lastCloudSyncAt = DateTime.now();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).restoredBackupSyncedToCloud,
+      );
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).restoredBackupCloudSyncFailed,
+      );
+    } finally {
+      _syncingCloud = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> restoreCloudDataReplaceLocal() async {
+    if (_authService?.currentUser == null) return;
+    if (_syncingCloud) return;
+    _syncingCloud = true;
+    _cloudSyncError = null;
+    notifyListeners();
+    try {
+      await CloudSyncService().restoreCloudDataReplaceLocal();
+      _cloudDeletionScheduledFor = null;
+      _lastCloudSyncAt = DateTime.now();
+      _load();
+      await _syncClassReminders();
+      notifyListeners();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).cloudDataRestored,
+      );
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).restoreCloudDataFailed,
+      );
+    } finally {
+      _syncingCloud = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> scheduleCloudDataDeletion() async {
+    if (_authService?.currentUser == null) return;
+    try {
+      _cloudDeletionScheduledFor =
+          await CloudSyncService().scheduleCloudDataDeletion();
+      notifyListeners();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).cloudDeletionScheduled,
+      );
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).cloudDeletionFailed,
+      );
+    }
+  }
+
+  Future<void> cancelCloudDataDeletion() async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await CloudSyncService().cancelCloudDataDeletion();
+      _cloudDeletionScheduledFor = null;
+      notifyListeners();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).cloudDeletionCancelled,
+      );
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).cloudDeletionCancelFailed,
+      );
+    }
+  }
+
+  Future<void> signOut() async {
+    final authService = _authService;
+    if (authService == null) return;
+    try {
+      await authService.signOut();
+      _signedInUserEmail = null;
+      notifyListeners();
+      AppFeedbackService.showSnackBar(AppStrings(languageCode).signOutMessage);
+    } catch (_) {
+      AppFeedbackService.showSnackBar(AppStrings(languageCode).signOutFailed);
+    }
+  }
+
+  Future<void> _syncTeacherClassToCloud(TeacherClass item) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await CloudSyncService().uploadTeacherClass(item);
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).classSavedLocallySyncFailed,
+      );
+    }
+  }
+
+  Future<void> _deleteClassTreeFromCloud(
+    String id, {
+    required List<String> scheduleIds,
+    required List<String> lessonIds,
+  }) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      final sync = CloudSyncService();
+      for (final scheduleId in scheduleIds) {
+        await sync.deleteScheduleItem(scheduleId);
+      }
+      for (final lessonId in lessonIds) {
+        await sync.deleteLessonRecord(lessonId);
+      }
+      await sync.deleteTeacherClass(id);
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(AppStrings(languageCode).cloudSyncFailed);
+    }
+  }
+
+  Future<void> _syncScheduleItemToCloud(ScheduleItem item) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      final className = classById(item.classId)?.className ?? item.classId;
+      await CloudSyncService().uploadScheduleItem(
+        item,
+        className: className,
+      );
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).periodSavedLocallySyncFailed,
+      );
+    }
+  }
+
+  Future<void> _deleteScheduleItemFromCloud(String id) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await CloudSyncService().deleteScheduleItem(id);
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(AppStrings(languageCode).cloudSyncFailed);
+    }
+  }
+
+  Future<void> _syncLessonRecordToCloud(LessonRecord record) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      final teacherClass = classById(record.classId);
+      await CloudSyncService().uploadLessonRecord(
+        record,
+        className: teacherClass?.className ?? record.classId,
+        subject: teacherClass?.subject ?? '',
+      );
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).lessonSavedLocallySyncFailed,
+      );
+    }
+  }
+
+  Future<void> _deleteLessonRecordFromCloud(String id) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await CloudSyncService().deleteLessonRecord(id);
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      AppFeedbackService.showSnackBar(AppStrings(languageCode).cloudSyncFailed);
+    }
+  }
+
+  Future<void> _saveProfileNameToCloud(String name) async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await CloudSyncService().saveProfileName(name);
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+    }
+  }
+
+  Future<void> _saveReminderSettingsToCloud() async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await CloudSyncService().saveReminderSettings(
+        notificationsEnabled: notificationsEnabled,
+        reminderMinutes: reminderMinutes,
+      );
+      _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+    }
   }
 
   Future<void> _syncClassReminders() async {
@@ -447,5 +753,11 @@ class AppController extends ChangeNotifier {
 
   Future<void> _createAutomaticBackup() async {
     await BackupService.createAutomaticBackup();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }

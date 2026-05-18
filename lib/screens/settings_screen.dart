@@ -8,6 +8,7 @@ import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../services/date_helpers.dart';
 import '../widgets/bottom_navigation_clearance.dart';
+import 'auth/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -100,6 +101,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: const Icon(Icons.save_outlined),
                         label: Text(strings.saveName),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    _AccountSyncPanel(
+                      controller: controller,
+                      lastSyncText: _formatSyncDate(
+                        controller.lastCloudSyncAt,
+                        controller.languageCode,
+                      ),
+                      onSignIn: () => _openLogin(context),
+                      onSyncNow: () => controller.syncLocalDataToCloud(),
+                      onRestoreCloud: () =>
+                          _confirmRestoreCloudData(context, controller),
+                      onDeleteCloud: () =>
+                          _confirmScheduleCloudDeletion(context, controller),
+                      onCancelCloudDeletion: controller.cancelCloudDataDeletion,
+                      onSignOut: controller.signOut,
                     ),
                   ],
                 ),
@@ -372,6 +389,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _openLogin(BuildContext context) {
+    return Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  Future<void> _confirmRestoreCloudData(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(strings.restoreCloudDataTitle),
+        content: Text(strings.restoreCloudDataMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(strings.restore),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.restoreCloudDataReplaceLocal();
+    }
+  }
+
+  Future<void> _confirmScheduleCloudDeletion(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(strings.deleteCloudDataTitle),
+        content: Text(strings.deleteCloudDataMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(strings.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.scheduleCloudDataDeletion();
+    }
+  }
+
   Future<void> _addDemoData(
     BuildContext context,
     AppController controller,
@@ -460,6 +537,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _formatBackupDate(DateTime? date, String languageCode) {
     final strings = AppStrings(languageCode);
     if (date == null) return strings.noBackupYet;
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${formatLocalizedDate(date, languageCode)} $hour:$minute';
+  }
+
+  String _formatSyncDate(DateTime? date, String languageCode) {
+    final strings = AppStrings(languageCode);
+    if (date == null) return strings.neverSynced;
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '${formatLocalizedDate(date, languageCode)} $hour:$minute';
@@ -604,6 +689,145 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return strings.invalidBackupFile;
     }
     return strings.restoreBackupFailed;
+  }
+}
+
+class _AccountSyncPanel extends StatelessWidget {
+  const _AccountSyncPanel({
+    required this.controller,
+    required this.lastSyncText,
+    required this.onSignIn,
+    required this.onSyncNow,
+    required this.onRestoreCloud,
+    required this.onDeleteCloud,
+    required this.onCancelCloudDeletion,
+    required this.onSignOut,
+  });
+
+  final AppController controller;
+  final String lastSyncText;
+  final VoidCallback onSignIn;
+  final VoidCallback onSyncNow;
+  final VoidCallback onRestoreCloud;
+  final VoidCallback onDeleteCloud;
+  final VoidCallback onCancelCloudDeletion;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings(controller.languageCode);
+    final theme = Theme.of(context);
+    final signedIn = controller.isSignedIn;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              signedIn ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+            ),
+            title: Text(signedIn ? strings.cloudSync : strings.signedOut),
+            subtitle: Text(
+              signedIn
+                  ? '${strings.signedInAs} ${controller.signedInUserEmail ?? ''}'
+                  : strings.signInToSync,
+            ),
+          ),
+          if (signedIn) ...[
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.sync_outlined),
+              title: Text(strings.lastCloudSync),
+              subtitle: Text(lastSyncText),
+            ),
+            if (controller.cloudSyncError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  strings.cloudSyncFailed,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: controller.isSyncingCloud ? null : onSyncNow,
+                    icon: controller.isSyncingCloud
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync_outlined),
+                    label: Text(
+                      controller.isSyncingCloud
+                          ? strings.syncing
+                          : strings.syncNow,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: controller.isSyncingCloud ? null : onSignOut,
+                    icon: const Icon(Icons.logout_outlined),
+                    label: Text(strings.signOut),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: controller.isSyncingCloud ? null : onRestoreCloud,
+                icon: const Icon(Icons.cloud_download_outlined),
+                label: Text(strings.restoreCloudData),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (controller.cloudDeletionScheduledFor == null)
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: controller.isSyncingCloud ? null : onDeleteCloud,
+                  icon: const Icon(Icons.cloud_off_outlined),
+                  label: Text(strings.deleteCloudData),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed:
+                      controller.isSyncingCloud ? null : onCancelCloudDeletion,
+                  icon: const Icon(Icons.undo_outlined),
+                  label: Text(strings.cancelCloudDeletion),
+                ),
+              ),
+          ] else
+            FilledButton.icon(
+              onPressed: onSignIn,
+              icon: const Icon(Icons.login_outlined),
+              label: Text(strings.signIn),
+            ),
+        ],
+      ),
+    );
   }
 }
 

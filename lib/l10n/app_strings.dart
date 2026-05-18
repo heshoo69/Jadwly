@@ -53,6 +53,9 @@ class AppStrings {
   String get cancel => isEnglish ? 'Cancel' : 'إلغاء';
   String get save => isEnglish ? 'Save' : 'حفظ';
   String get confirmDelete => isEnglish ? 'Confirm delete' : 'تأكيد الحذف';
+  String get classSavedLocallySyncFailed => isEnglish
+      ? 'Class saved on this device, but cloud sync failed.'
+      : 'تم حفظ الفصل على الجهاز، لكن تعذرت المزامنة مع السحابة.';
   String deleteClassMessage(String className) => isEnglish
       ? 'Are you sure you want to delete "$className"? The class schedule and lesson history will also be deleted.'
       : 'هل أنت متأكد من حذف الفصل "$className"؟ سيتم حذف جدول هذا الفصل وسجل الدروس المرتبط به.';
@@ -82,6 +85,9 @@ class AppStrings {
   String get date => isEnglish ? 'Date' : 'التاريخ';
   String get notes => isEnglish ? 'Notes' : 'ملاحظات';
   String get saveLesson => isEnglish ? 'Save lesson' : 'حفظ الدرس';
+  String get lessonSavedLocallySyncFailed => isEnglish
+      ? 'Lesson saved on this device, but cloud sync failed.'
+      : 'تم حفظ الدرس على الجهاز، لكن تعذرت المزامنة مع السحابة.';
 
   String get addScheduleItem => isEnglish ? 'New period' : 'حصة جديدة';
   String get weeklySchedule =>
@@ -96,6 +102,9 @@ class AppStrings {
       : 'الحصص بدون رقم تظهر في الشكل الخطي فقط.';
   String get addPeriod => isEnglish ? 'Add period' : 'إضافة حصة';
   String get editPeriod => isEnglish ? 'Edit period' : 'تعديل حصة';
+  String get periodSavedLocallySyncFailed => isEnglish
+      ? 'Period saved on this device, but cloud sync failed.'
+      : 'تم حفظ الحصة على الجهاز، لكن تعذرت المزامنة مع السحابة.';
   String get noPeriods => isEnglish ? 'No periods' : 'لا توجد حصص';
   String noPeriodsForDay(String day) => isEnglish
       ? 'Add periods for $day using the add button.'
@@ -107,6 +116,16 @@ class AppStrings {
   String get day => isEnglish ? 'Day' : 'اليوم';
   String get periodNumberOptional =>
       isEnglish ? 'Period number (optional)' : 'رقم الحصة (اختياري)';
+  String get periodNumberRequiredLabel =>
+      isEnglish ? 'Period number' : 'رقم الحصة';
+  String get periodNumberRequired =>
+      isEnglish ? 'Period number is required' : 'رقم الحصة مطلوب';
+  String get periodNumberOutOfRange => isEnglish
+      ? 'Period number must be between 1 and 7'
+      : 'رقم الحصة يجب أن يكون بين 1 و7';
+  String get periodNumberAlreadyUsed => isEnglish
+      ? 'This period number is already used on this day'
+      : 'رقم الحصة مستخدم في هذا اليوم';
   String get invalidNumber =>
       isEnglish ? 'Enter a valid number' : 'أدخل رقماً صحيحاً';
   String get startTime => isEnglish ? 'Start time' : 'وقت البداية';
@@ -115,6 +134,12 @@ class AppStrings {
       isEnglish ? 'Start time is required' : 'وقت البداية مطلوب';
   String get endTimeRequired =>
       isEnglish ? 'End time is required' : 'وقت النهاية مطلوب';
+  String get endTimeMustBeAfterStartTime => isEnglish
+      ? 'End time must be after start time.'
+      : 'وقت النهاية يجب أن يكون بعد وقت البداية.';
+  String get savePeriodFailed => isEnglish
+      ? 'Could not save the period. Check the details and try again.'
+      : 'تعذر حفظ الحصة. تحقق من البيانات وحاول مرة أخرى.';
   String get subject => isEnglish ? 'Subject' : 'المادة';
   String get className => isEnglish ? 'Class name' : 'اسم الفصل';
   String get classNameRequired =>
@@ -130,6 +155,91 @@ class AppStrings {
   String get account => isEnglish ? 'Account' : 'الحساب';
   String get teacherName => isEnglish ? 'Teacher name' : 'اسم المعلم';
   String get saveName => isEnglish ? 'Save name' : 'حفظ الاسم';
+  String get signIn => isEnglish ? 'Sign in' : 'تسجيل الدخول';
+  String get signOut => isEnglish ? 'Sign out' : 'تسجيل الخروج';
+  String get signedOut => isEnglish ? 'Not signed in' : 'لم يتم تسجيل الدخول';
+  String get signedInAs => isEnglish ? 'Signed in as' : 'تم تسجيل الدخول باسم';
+  String get signInToSync => isEnglish
+      ? 'Sign in to sync this device data to Supabase.'
+      : 'سجّل الدخول لمزامنة بيانات هذا الجهاز مع Supabase.';
+  String get cloudSync => isEnglish ? 'Cloud sync' : 'المزامنة السحابية';
+  String get syncNow => isEnglish ? 'Sync now' : 'مزامنة الآن';
+  String get syncing => isEnglish ? 'Syncing...' : 'جاري المزامنة...';
+  String get cloudSyncComplete =>
+      isEnglish ? 'Cloud sync complete.' : 'اكتملت المزامنة السحابية.';
+  String get cloudSyncFailed => isEnglish
+      ? 'Cloud sync failed. Local data is still saved.'
+      : 'تعذرت المزامنة السحابية. البيانات المحلية محفوظة.';
+  String get restoredBackupSyncedToCloud => isEnglish
+      ? 'Restored backup synced to cloud.'
+      : 'تمت مزامنة النسخة المستعادة مع السحابة.';
+  String get restoredBackupCloudSyncFailed => isEnglish
+      ? 'Could not sync the restored backup to cloud. Local data is still saved.'
+      : 'تعذرت مزامنة النسخة المستعادة مع السحابة. البيانات المحلية محفوظة.';
+  String get neverSynced =>
+      isEnglish ? 'Not synced yet' : 'لم تتم المزامنة بعد';
+  String get lastCloudSync =>
+      isEnglish ? 'Last cloud sync' : 'آخر مزامنة سحابية';
+  String get restoreCloudData =>
+      isEnglish ? 'Restore from cloud' : 'استعادة من السحابة';
+  String get restoreCloudDataTitle =>
+      isEnglish ? 'Replace local data?' : 'استبدال البيانات المحلية؟';
+  String get restoreCloudDataMessage => isEnglish
+      ? 'Cloud data will replace the classes, schedule, and lesson history on this device.'
+      : 'سيتم استبدال الفصول والجدول وسجل الدروس على هذا الجهاز ببيانات السحابة.';
+  String get cloudDataRestored => isEnglish
+      ? 'Cloud data restored on this device.'
+      : 'تمت استعادة بيانات السحابة على هذا الجهاز.';
+  String get restoreCloudDataFailed => isEnglish
+      ? 'Could not restore cloud data. Try again.'
+      : 'تعذر استعادة بيانات السحابة. حاول مرة أخرى.';
+  String get deleteCloudData =>
+      isEnglish ? 'Delete cloud data' : 'حذف بيانات السحابة';
+  String get deleteCloudDataTitle =>
+      isEnglish ? 'Schedule cloud deletion?' : 'جدولة حذف بيانات السحابة؟';
+  String get deleteCloudDataMessage => isEnglish
+      ? 'Cloud data will be deleted after 7 days unless you cancel deletion or restore from cloud first.'
+      : 'سيتم حذف بيانات السحابة بعد ٧ أيام إلا إذا ألغيت الحذف أو استعدت من السحابة قبل ذلك.';
+  String get cloudDeletionScheduled => isEnglish
+      ? 'Cloud deletion scheduled after 7 days.'
+      : 'تمت جدولة حذف بيانات السحابة بعد ٧ أيام.';
+  String get cloudDeletionFailed => isEnglish
+      ? 'Could not schedule cloud deletion.'
+      : 'تعذرت جدولة حذف بيانات السحابة.';
+  String get cancelCloudDeletion =>
+      isEnglish ? 'Cancel cloud deletion' : 'إلغاء حذف السحابة';
+  String get cloudDeletionCancelled =>
+      isEnglish ? 'Cloud deletion cancelled.' : 'تم إلغاء حذف بيانات السحابة.';
+  String get cloudDeletionCancelFailed => isEnglish
+      ? 'Could not cancel cloud deletion.'
+      : 'تعذر إلغاء حذف بيانات السحابة.';
+  String get signOutMessage =>
+      isEnglish ? 'You have been signed out.' : 'تم تسجيل الخروج من حسابك.';
+  String get signOutFailed => isEnglish
+      ? 'Could not sign out. Please try again.'
+      : 'تعذر تسجيل الخروج. حاول مرة أخرى.';
+  String get loginTitle =>
+      isEnglish ? 'Sign in to Jadwly' : 'تسجيل الدخول إلى جدولي';
+  String get loginSubtitle => isEnglish
+      ? 'Use cloud sync when you want it. Your device data stays available.'
+      : 'استخدم المزامنة السحابية عند رغبتك. بيانات الجهاز تبقى متاحة.';
+  String get email => isEnglish ? 'Email' : 'البريد الإلكتروني';
+  String get emailOtp => isEnglish ? 'Email OTP' : 'رمز البريد الإلكتروني';
+  String get sendOtp => isEnglish ? 'Send login code' : 'إرسال رمز الدخول';
+  String get verifyOtp => isEnglish ? 'Verify and sign in' : 'تحقق وتسجيل دخول';
+  String get continueWithGoogle =>
+      isEnglish ? 'Continue with Google' : 'المتابعة باستخدام Google';
+  String get continueWithApple =>
+      isEnglish ? 'Continue with Apple' : 'تسجيل الدخول باستخدام Apple';
+  String get invalidEmail => isEnglish
+      ? 'Enter a valid email address.'
+      : 'أدخل بريدًا إلكترونيًا صحيحًا.';
+  String get enterOtp => isEnglish
+      ? 'Enter the code sent to your email.'
+      : 'أدخل رمز التحقق المرسل إلى بريدك.';
+  String get otpSent => isEnglish
+      ? 'A login code has been sent to your email.'
+      : 'تم إرسال رمز الدخول إلى بريدك.';
   String get preferences => isEnglish ? 'Preferences' : 'التفضيلات';
   String get weekSettings => isEnglish ? 'Week settings' : 'إعدادات الأسبوع';
   String get weekStart => isEnglish ? 'Week starts on' : 'بداية الأسبوع';

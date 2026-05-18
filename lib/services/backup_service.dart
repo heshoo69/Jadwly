@@ -10,6 +10,7 @@ import '../models/schedule_item.dart';
 import '../models/session_type.dart';
 import '../models/teacher_class.dart';
 import 'storage_service.dart';
+import 'time_helpers.dart';
 
 enum BackupStatus {
   automaticSaved,
@@ -483,12 +484,16 @@ class BackupService {
       };
 
   static ScheduleItem _scheduleItemFromJson(Map<String, dynamic> json) {
+    final startTime = normalizeClockTimeAmPm(json['startTime'] as String);
     return ScheduleItem(
       id: json['id'] as String,
       dayOfWeek: json['dayOfWeek'] as int,
       periodNumber: json['periodNumber'] as int,
-      startTime: json['startTime'] as String,
-      endTime: json['endTime'] as String,
+      startTime: startTime,
+      endTime: normalizeLegacyScheduleEndTime(
+        startTime: startTime,
+        endTime: json['endTime'] as String,
+      ),
       subject: json['subject'] as String,
       classId: json['classId'] as String,
       roomNumber: json['roomNumber'] as String?,

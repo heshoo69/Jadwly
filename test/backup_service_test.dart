@@ -352,6 +352,36 @@ void main() {
     expect(StorageService.lessonsBox.length, 1);
     expect(StorageService.settingsBox.get('languageCode'), 'en');
   });
+
+  test('applyBackupToLocalStorage normalizes legacy noon end time', () async {
+    await _seedData();
+    final backup = await BackupService.createBackupJson();
+    backup['scheduleItems'] = [
+      {
+        'id': 'schedule-legacy',
+        'dayOfWeek': DateTime.monday,
+        'periodNumber': 7,
+        'startTime': '11:55 AM',
+        'endTime': '12:40 AM',
+        'subject': 'Digital Skills',
+        'classId': 'class-1',
+        'roomNumber': null,
+      },
+    ];
+
+    await BackupService.applyBackupToLocalStorage(
+      jsonDecode(jsonEncode(backup)) as Map<String, dynamic>,
+    );
+
+    expect(
+      StorageService.scheduleBox.get('schedule-legacy')?.startTime,
+      '11:55 AM',
+    );
+    expect(
+      StorageService.scheduleBox.get('schedule-legacy')?.endTime,
+      '12:40 PM',
+    );
+  });
 }
 
 Future<void> _seedData() async {
