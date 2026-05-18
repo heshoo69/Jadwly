@@ -16,6 +16,12 @@ class NotificationService {
   static const channelId = 'class_reminders';
   static const channelName = 'تنبيهات الحصص';
   static const channelDescription = 'تنبيهات قبل الحصة مع ملخص آخر درس';
+  static const deletionReminderChannelId = 'cloud_deletion_reminders';
+  static const deletionReminderChannelName = 'تنبيهات استعادة البيانات';
+  static const deletionReminderChannelDescription =
+      'تذكيرات قبل حذف بيانات السيرفر المؤجل';
+  static const _cloudDeletion48HoursNotificationId = 900001;
+  static const _cloudDeletionLastDayNotificationId = 900002;
 
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -68,6 +74,43 @@ class NotificationService {
 
   static Future<void> cancelAllClassReminders() => _plugin.cancelAll();
 
+  static Future<void> cancelCloudDeletionReminders() async {
+    await _plugin.cancel(_cloudDeletion48HoursNotificationId);
+    await _plugin.cancel(_cloudDeletionLastDayNotificationId);
+  }
+
+  static Future<void> scheduleCloudDeletionRestoreReminders({
+    required DateTime scheduledFor,
+    required String languageCode,
+  }) async {
+    final granted = await requestPermission();
+    if (!granted) return;
+
+    await cancelCloudDeletionReminders();
+
+    await _scheduleCloudDeletionReminder(
+      id: _cloudDeletion48HoursNotificationId,
+      scheduledAt: scheduledFor.subtract(const Duration(hours: 48)),
+      title: languageCode == 'en'
+          ? 'Restore your cloud data'
+          : 'استعادة بيانات السيرفر',
+      body: languageCode == 'en'
+          ? 'Your cloud data will be deleted in 48 hours unless you restore it.'
+          : 'سيتم حذف بيانات السيرفر بعد ٤٨ ساعة إذا لم تستعدها.',
+    );
+
+    await _scheduleCloudDeletionReminder(
+      id: _cloudDeletionLastDayNotificationId,
+      scheduledAt: scheduledFor.subtract(const Duration(days: 1)),
+      title: languageCode == 'en'
+          ? 'Last day to restore data'
+          : 'آخر يوم لاستعادة البيانات',
+      body: languageCode == 'en'
+          ? 'This is the last day to restore your cloud data before deletion.'
+          : 'هذا آخر يوم لاستعادة بيانات السيرفر قبل حذفها.',
+    );
+  }
+
   static Future<void> rescheduleWeeklyClassReminders({
     required List<ScheduleItem> schedule,
     required List<TeacherClass> classes,
@@ -118,6 +161,36 @@ class NotificationService {
     } catch (_) {
       tz.setLocalLocation(tz.UTC);
     }
+  }
+
+  static Future<void> _scheduleCloudDeletionReminder({
+    required int id,
+    required DateTime scheduledAt,
+    required String title,
+    required String body,
+  }) async {
+    final now = DateTime.now();
+    if (!scheduledAt.isAfter(now)) return;
+
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledAt, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          deletionReminderChannelId,
+          deletionReminderChannelName,
+          channelDescription: deletionReminderChannelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+        macOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: 'cloud_deletion_restore',
+    );
   }
 
   static tz.TZDateTime? _nextReminderDate(

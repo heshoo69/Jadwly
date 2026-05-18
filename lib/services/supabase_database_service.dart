@@ -7,17 +7,20 @@ import '../models/lesson_record.dart';
 import '../models/lesson_status.dart';
 import '../models/schedule_item.dart';
 import '../models/session_type.dart';
+import '../models/teacher_class.dart';
 import 'date_helpers.dart';
 
 class SupabaseDatabaseService {
   SupabaseDatabaseService._();
 
   static const profilesTable = 'profiles';
+  static const teacherClassesTable = 'teacher_classes';
   static const weeklyScheduleTable = 'weekly_schedule';
   static const lessonRecordsTable = 'lesson_records';
   static const reminderSettingsTable = 'reminder_settings';
   static const notificationsTable = 'notifications';
   static const deviceTokensTable = 'device_tokens';
+  static const cloudDataDeletionRequestsTable = 'cloud_data_deletion_requests';
 
   static SupabaseClient get _client => Supabase.instance.client;
 
@@ -74,6 +77,52 @@ class SupabaseDatabaseService {
         .order('period_number');
 
     return rows.map<ScheduleItem>(_scheduleItemFromRow).toList();
+  }
+
+  static Future<List<TeacherClass>> fetchTeacherClasses() async {
+    final userId = currentUserId;
+    final rows = await _client
+        .from(teacherClassesTable)
+        .select()
+        .eq('teacher_id', userId)
+        .order('created_at');
+
+    return rows.map<TeacherClass>(_teacherClassFromRow).toList();
+  }
+
+  static Future<void> upsertTeacherClass(TeacherClass item) async {
+    debugPrint('Supabase class session check start: ${item.id}');
+    final session = await ensureSessionReady();
+    debugPrint('Supabase class session check success: ${item.id}');
+    final body = _teacherClassToRow(item, session.user.id);
+
+    try {
+      debugPrint('teacher_classes upsert start: ${item.id}');
+      await _client
+          .from(teacherClassesTable)
+          .upsert(body, onConflict: 'id')
+          .timeout(const Duration(seconds: 8));
+      debugPrint('teacher_classes upsert success: ${item.id}');
+    } on PostgrestException catch (error, stackTrace) {
+      debugPrint('teacher_classes upsert failed: ${item.id}');
+      debugPrint('Supabase error message: ${error.message}');
+      debugPrint('Supabase error details: ${error.details}');
+      debugPrint('teacher_classes payload: $body');
+      Error.throwWithStackTrace(error, stackTrace);
+    } catch (error) {
+      debugPrint('teacher_classes upsert failed: ${item.id} $error');
+      rethrow;
+    }
+  }
+
+  static Future<void> deleteTeacherClass(String id) async {
+    if (!isUuid(id)) return;
+    final userId = currentUserId;
+    await _client
+        .from(teacherClassesTable)
+        .delete()
+        .eq('id', id)
+        .eq('teacher_id', userId);
   }
 
   static Future<ScheduleItem> upsertScheduleItem(
@@ -215,6 +264,79 @@ class SupabaseDatabaseService {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       },
       onConflict: 'id',
+    );
+  }
+
+  static Future<DateTime> scheduleCloudDataDeletion({
+    Duration delay = const Duration(days: 7),
+  }) async {
+    final session = await ensureSessionReady();
+    final userId = session.user.id;
+    final now = DateTime.now().toUtc();
+    final scheduledFor = now.add(delay);
+    await _client.from(cloudDataDeletionRequestsTable).upsert(
+      {
+        'teacher_id': userId,
+        'scheduled_for': scheduledFor.toIso8601String(),
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      },
+      onConflict: 'teacher_id',
+    ).timeout(const Duration(seconds: 8));
+    return scheduledFor;
+  }
+
+  static Future<void> cancelCloudDataDeletion() async {
+    final userId = currentUserId;
+    await _client
+        .from(cloudDataDeletionRequestsTable)
+        .delete()
+        .eq('teacher_id', userId)
+        .timeout(const Duration(seconds: 8));
+  }
+
+  static Future<void> deleteCloudDataForCurrentUser() async {
+    final userId = currentUserId;
+    await _client
+        .from(weeklyScheduleTable)
+        .delete()
+        .eq('teacher_id', userId)
+        .timeout(const Duration(seconds: 8));
+    await _client
+        .from(lessonRecordsTable)
+        .delete()
+        .eq('teacher_id', userId)
+        .timeout(const Duration(seconds: 8));
+    await _client
+        .from(teacherClassesTable)
+        .delete()
+        .eq('teacher_id', userId)
+        .timeout(const Duration(seconds: 8));
+  }
+
+  static Map<String, dynamic> _teacherClassToRow(
+    TeacherClass item,
+    String userId,
+  ) {
+    final now = DateTime.now().toUtc().toIso8601String();
+    return {
+      'id': item.id,
+      'teacher_id': userId,
+      'class_name': item.className.trim(),
+      'subject': item.subject.trim(),
+      'room': item.roomNumber,
+      'created_at': item.createdAt.toUtc().toIso8601String(),
+      'updated_at': now,
+    };
+  }
+
+  static TeacherClass _teacherClassFromRow(Map<String, dynamic> row) {
+    return TeacherClass(
+      id: row['id'] as String,
+      className: row['class_name'] as String? ?? '',
+      subject: row['subject'] as String? ?? '',
+      roomNumber: row['room'] as String?,
+      createdAt: _parseDate(row['created_at']),
     );
   }
 

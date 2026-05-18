@@ -94,6 +94,17 @@ class AppController extends ChangeNotifier {
       });
   }
 
+  bool hasSchedulePeriodConflict({
+    required int dayOfWeek,
+    required int periodNumber,
+    String? excludeId,
+  }) {
+    return schedule.any((item) =>
+        item.dayOfWeek == dayOfWeek &&
+        item.periodNumber == periodNumber &&
+        item.id != excludeId);
+  }
+
   List<int> get visibleWeekDays {
     final ordered = <int>[];
     for (var offset = 0; offset < 7; offset++) {
@@ -122,6 +133,8 @@ class AppController extends ChangeNotifier {
     _load();
     await _syncClassReminders();
     notifyListeners();
+    await _syncRemoteTeacherClass(item);
+    await _syncRemoteScheduleForClass(item);
   }
 
   Future<void> deleteTeacherClass(String id) async {
@@ -129,6 +142,7 @@ class AppController extends ChangeNotifier {
         in schedule.where((entry) => entry.classId == id).toList()) {
       await SupabaseDatabaseService.deleteScheduleItem(item.id);
     }
+    await SupabaseDatabaseService.deleteTeacherClass(id);
     for (final item in lessons.where((entry) => entry.classId == id).toList()) {
       await SupabaseDatabaseService.deleteLessonRecord(item.id);
     }
@@ -163,12 +177,12 @@ class AppController extends ChangeNotifier {
     _load();
     notifyListeners();
 
-    unawaited(_syncClassReminders());
-    unawaited(_syncRemoteScheduleItem(
+    await _syncClassReminders();
+    await _syncRemoteScheduleItem(
       scopedItem,
       className: className,
       isNew: remoteIsNew,
-    ));
+    );
   }
 
   Future<void> deleteScheduleItem(String id) async {
@@ -255,18 +269,40 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> clearAllData() async {
+    DateTime? cloudDeletionScheduledFor;
     if (Supabase.instance.client.auth.currentUser != null) {
-      for (final item in schedule) {
-        await SupabaseDatabaseService.deleteScheduleItem(item.id);
-      }
-      for (final lesson in lessons) {
-        await SupabaseDatabaseService.deleteLessonRecord(lesson.id);
-      }
+      cloudDeletionScheduledFor =
+          await SupabaseDatabaseService.scheduleCloudDataDeletion();
     }
     await NotificationService.cancelAllClassReminders();
     await StorageService.clearAll();
+    if (cloudDeletionScheduledFor != null) {
+      await NotificationService.scheduleCloudDeletionRestoreReminders(
+        scheduledFor: cloudDeletionScheduledFor,
+        languageCode: languageCode,
+      );
+    }
     _load();
     notifyListeners();
+  }
+
+  Future<void> clearCloudData() async {
+    if (Supabase.instance.client.auth.currentUser != null) {
+      await SupabaseDatabaseService.cancelCloudDataDeletion();
+      await SupabaseDatabaseService.deleteCloudDataForCurrentUser();
+    }
+    await NotificationService.cancelAllClassReminders();
+    await NotificationService.cancelCloudDeletionReminders();
+    await StorageService.clearAll();
+    _load();
+    notifyListeners();
+  }
+
+  Future<void> restoreCloudData() async {
+    if (Supabase.instance.client.auth.currentUser == null) return;
+    await SupabaseDatabaseService.cancelCloudDataDeletion();
+    await NotificationService.cancelCloudDeletionReminders();
+    await loadUserData();
   }
 
   Future<bool> setNotificationsEnabled(bool enabled) async {
@@ -349,6 +385,8 @@ class AppController extends ChangeNotifier {
       roomNumber: '202',
       createdAt: now,
     );
+    await SupabaseDatabaseService.upsertTeacherClass(classOne);
+    await SupabaseDatabaseService.upsertTeacherClass(classTwo);
     await StorageService.classesBox.put(classOne.id, classOne);
     await StorageService.classesBox.put(classTwo.id, classTwo);
     final scheduleOne = ScheduleItem(
@@ -414,13 +452,23 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> loadUserData() async {
+    final remoteClasses = await SupabaseDatabaseService.fetchTeacherClasses();
     final remoteSchedule = await SupabaseDatabaseService.fetchWeeklySchedule();
     final remoteLessons = await SupabaseDatabaseService.fetchLessonRecords();
     final remoteReminderSettings =
         await SupabaseDatabaseService.fetchReminderSettings();
-    final matchedSchedule = remoteSchedule.map(_matchRemoteScheduleClass);
-    final matchedLessons = remoteLessons.map(_matchRemoteLessonClass);
+    final matchedSchedule =
+        remoteSchedule.map((item) => _matchRemoteScheduleClass(
+              item,
+              remoteClasses,
+            ));
+    final matchedLessons =
+        remoteLessons.map((lesson) => _matchRemoteLessonClass(
+              lesson,
+              remoteClasses,
+            ));
     await _replaceUserScopedLocalData(
+      teacherClasses: remoteClasses,
       scheduleItems: matchedSchedule.toList(),
       lessonRecords: matchedLessons.toList(),
     );
@@ -440,8 +488,11 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  ScheduleItem _matchRemoteScheduleClass(ScheduleItem item) {
-    for (final teacherClass in classes) {
+  ScheduleItem _matchRemoteScheduleClass(
+    ScheduleItem item,
+    List<TeacherClass> teacherClasses,
+  ) {
+    for (final teacherClass in teacherClasses) {
       if (teacherClass.className == item.classId) {
         return item.copyWith(
           classId: teacherClass.id,
@@ -453,8 +504,11 @@ class AppController extends ChangeNotifier {
     return item;
   }
 
-  LessonRecord _matchRemoteLessonClass(LessonRecord lesson) {
-    for (final teacherClass in classes) {
+  LessonRecord _matchRemoteLessonClass(
+    LessonRecord lesson,
+    List<TeacherClass> teacherClasses,
+  ) {
+    for (final teacherClass in teacherClasses) {
       if (teacherClass.className == lesson.classId) {
         return lesson.copyWith(classId: teacherClass.id);
       }
@@ -463,11 +517,16 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _replaceUserScopedLocalData({
+    required List<TeacherClass> teacherClasses,
     required List<ScheduleItem> scheduleItems,
     required List<LessonRecord> lessonRecords,
   }) async {
+    await StorageService.classesBox.clear();
     await StorageService.scheduleBox.clear();
     await StorageService.lessonsBox.clear();
+    await StorageService.classesBox.putAll({
+      for (final item in teacherClasses) item.id: item,
+    });
     await StorageService.scheduleBox.putAll({
       for (final item in scheduleItems) item.id: item,
     });
@@ -477,6 +536,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _clearUserScopedLocalData() async {
+    await StorageService.classesBox.clear();
     await StorageService.scheduleBox.clear();
     await StorageService.lessonsBox.clear();
     _load();
@@ -532,6 +592,32 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncRemoteTeacherClass(TeacherClass item) async {
+    if (Supabase.instance.client.auth.currentUser == null) return;
+    try {
+      debugPrint('Sync teacher_classes start: ${item.id}');
+      await SupabaseDatabaseService.upsertTeacherClass(item);
+      debugPrint('Sync teacher_classes success: ${item.id}');
+    } catch (error) {
+      debugPrint('Sync teacher_classes failed: ${item.id} $error');
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).classSavedLocallySyncFailed,
+      );
+    }
+  }
+
+  Future<void> _syncRemoteScheduleForClass(TeacherClass item) async {
+    if (Supabase.instance.client.auth.currentUser == null) return;
+    for (final scheduleItem
+        in schedule.where((entry) => entry.classId == item.id)) {
+      await _syncRemoteScheduleItem(
+        scheduleItem,
+        className: item.className,
+        isNew: false,
+      );
+    }
+  }
+
   Future<void> _syncRemoteScheduleItem(
     ScheduleItem item, {
     required String? className,
@@ -547,6 +633,9 @@ class AppController extends ChangeNotifier {
       debugPrint('Sync weekly_schedule success: ${item.id}');
     } catch (error) {
       debugPrint('Sync weekly_schedule failed: ${item.id} $error');
+      AppFeedbackService.showSnackBar(
+        AppStrings(languageCode).periodSavedLocallySyncFailed,
+      );
     }
   }
 

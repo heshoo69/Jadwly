@@ -95,8 +95,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                         child: Text(
                             localizedDayName(day, controller.languageCode))))
                     .toList(),
-                onChanged: (value) =>
-                    setState(() => _dayOfWeek = value ?? _dayOfWeek),
+                onChanged: (value) {
+                  setState(() => _dayOfWeek = value ?? _dayOfWeek);
+                  _formKey.currentState?.validate();
+                },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -125,14 +127,23 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
               const SizedBox(height: 12),
               AppTextField(
                 controller: _periodController,
-                label: strings.periodNumberOptional,
+                label: strings.periodNumberRequiredLabel,
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   final text = value?.trim() ?? '';
-                  if (text.isEmpty) return null;
-                  return int.tryParse(text) == null
-                      ? strings.invalidNumber
-                      : null;
+                  if (text.isEmpty) return strings.periodNumberRequired;
+                  final periodNumber = int.tryParse(text);
+                  if (periodNumber == null) return strings.invalidNumber;
+                  if (periodNumber < 1 || periodNumber > 7) {
+                    return strings.periodNumberOutOfRange;
+                  }
+                  final hasConflict = controller.hasSchedulePeriodConflict(
+                    dayOfWeek: _dayOfWeek,
+                    periodNumber: periodNumber,
+                    excludeId: widget.scheduleItem?.id,
+                  );
+                  if (hasConflict) return strings.periodNumberAlreadyUsed;
+                  return null;
                 },
               ),
               const SizedBox(height: 12),
@@ -211,7 +222,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     final item = ScheduleItem(
       id: existing?.id ?? newId(),
       dayOfWeek: _dayOfWeek,
-      periodNumber: periodText.isEmpty ? 0 : int.parse(periodText),
+      periodNumber: int.parse(periodText),
       startTime: _startController.text.trim(),
       endTime: _endController.text.trim(),
       subject: _subjectController.text.trim(),

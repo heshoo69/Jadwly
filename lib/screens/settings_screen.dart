@@ -209,9 +209,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: FilledButton.styleFrom(
                           foregroundColor: theme.colorScheme.error,
                         ),
-                        onPressed: () => _confirmClear(context, controller),
+                        onPressed: () =>
+                            _confirmClearDeviceData(context, controller),
                         icon: const Icon(Icons.delete_outline),
-                        label: Text(strings.clearLocalData),
+                        label: Text(strings.clearDeviceData),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed:
+                            Supabase.instance.client.auth.currentUser == null
+                                ? null
+                                : () => _restoreCloudData(
+                                      context,
+                                      controller,
+                                    ),
+                        icon: const Icon(Icons.cloud_download_outlined),
+                        label: Text(strings.restoreCloudData),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: theme.colorScheme.error,
+                          foregroundColor: theme.colorScheme.onError,
+                        ),
+                        onPressed:
+                            Supabase.instance.client.auth.currentUser == null
+                                ? null
+                                : () => _confirmDeleteCloudData(
+                                      context,
+                                      controller,
+                                    ),
+                        icon: const Icon(Icons.cloud_off_outlined),
+                        label: Text(strings.deleteCloudData),
                       ),
                     ),
                   ],
@@ -479,7 +514,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _confirmClear(
+  Future<void> _confirmClearDeviceData(
     BuildContext context,
     AppController controller,
   ) async {
@@ -487,8 +522,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(strings.clearDataTitle),
-        content: Text(strings.clearDataMessage),
+        title: Text(strings.clearDeviceDataTitle),
+        content: Text(strings.clearDeviceDataMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -501,7 +536,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    if (confirmed == true) controller.clearAllData();
+    if (confirmed != true) return;
+    try {
+      await controller.clearAllData();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.deviceDataCleared)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.clearDeviceDataFailed)),
+      );
+    }
+  }
+
+  Future<void> _restoreCloudData(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    try {
+      await controller.restoreCloudData();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.cloudDataRestored)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.restoreCloudDataFailed)),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteCloudData(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(strings.deleteCloudDataTitle),
+        content: Text(strings.deleteCloudDataMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(strings.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await controller.clearCloudData();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.cloudDataDeleted)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.deleteCloudDataFailed)),
+      );
+    }
   }
 }
 

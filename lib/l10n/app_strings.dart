@@ -53,6 +53,9 @@ class AppStrings {
   String get cancel => isEnglish ? 'Cancel' : 'إلغاء';
   String get save => isEnglish ? 'Save' : 'حفظ';
   String get confirmDelete => isEnglish ? 'Confirm delete' : 'تأكيد الحذف';
+  String get classSavedLocallySyncFailed => isEnglish
+      ? 'Class saved on this device, but cloud sync failed.'
+      : 'تم حفظ الفصل على الجهاز، لكن تعذرت المزامنة مع السحابة.';
   String deleteClassMessage(String className) => isEnglish
       ? 'Are you sure you want to delete "$className"? The class schedule and lesson history will also be deleted.'
       : 'هل أنت متأكد من حذف الفصل "$className"؟ سيتم حذف جدول هذا الفصل وسجل الدروس المرتبط به.';
@@ -109,6 +112,9 @@ class AppStrings {
   String get savePeriodFailed => isEnglish
       ? 'Could not save the period. Check the details and try again.'
       : 'تعذر حفظ الحصة. تحقق من البيانات وحاول مرة أخرى.';
+  String get periodSavedLocallySyncFailed => isEnglish
+      ? 'Period saved on this device, but cloud sync failed.'
+      : 'تم حفظ الحصة على الجهاز، لكن تعذرت المزامنة مع السحابة.';
   String get endTimeMustBeAfterStartTime => isEnglish
       ? 'End time must be after start time.'
       : 'وقت النهاية يجب أن يكون بعد وقت البداية.';
@@ -121,6 +127,16 @@ class AppStrings {
   String get period => isEnglish ? 'Period' : 'حصة';
   String get thisPeriod => isEnglish ? 'this period' : 'هذه الحصة';
   String get day => isEnglish ? 'Day' : 'اليوم';
+  String get periodNumberRequiredLabel =>
+      isEnglish ? 'Period number' : 'رقم الحصة';
+  String get periodNumberRequired =>
+      isEnglish ? 'Period number is required' : 'رقم الحصة مطلوب';
+  String get periodNumberOutOfRange => isEnglish
+      ? 'Period number must be between 1 and 7'
+      : 'رقم الحصة يجب أن يكون بين 1 و7';
+  String get periodNumberAlreadyUsed => isEnglish
+      ? 'This period number is already used on this day'
+      : 'رقم الحصة مستخدم في هذا اليوم';
   String get periodNumberOptional =>
       isEnglish ? 'Period number (optional)' : 'رقم الحصة (اختياري)';
   String get invalidNumber =>
@@ -197,6 +213,12 @@ class AppStrings {
       isEnglish ? 'Add demo data' : 'إضافة بيانات تجريبية';
   String get clearLocalData =>
       isEnglish ? 'Clear all local data' : 'مسح كل البيانات المحلية';
+  String get clearDeviceData =>
+      isEnglish ? 'Clear device data' : 'مسح بيانات هذا الجهاز';
+  String get restoreCloudData =>
+      isEnglish ? 'Restore from cloud' : 'استعادة البيانات من السيرفر';
+  String get deleteCloudData =>
+      isEnglish ? 'Delete cloud data' : 'مسح بيانات السيرفر';
   String get notificationsDenied => isEnglish
       ? 'Notifications were not enabled because permission was not granted.'
       : 'لم يتم تفعيل الإشعارات لأن صلاحية التنبيه غير ممنوحة.';
@@ -204,6 +226,33 @@ class AppStrings {
   String get clearDataMessage => isEnglish
       ? 'Classes, schedule, and lesson history will be deleted from this device.'
       : 'سيتم حذف الفصول والجدول وسجل الدروس من هذا الجهاز.';
+  String get clearDeviceDataTitle =>
+      isEnglish ? 'Clear device data?' : 'مسح بيانات هذا الجهاز؟';
+  String get clearDeviceDataMessage => isEnglish
+      ? 'Data will be deleted from this device now. Cloud data will be deleted after 7 days unless you restore from cloud first.'
+      : 'سيتم حذف البيانات من هذا الجهاز الآن. سيتم حذف بيانات السيرفر بعد ٧ أيام إلا إذا استعدت البيانات من السيرفر قبل ذلك.';
+  String get deleteCloudDataTitle =>
+      isEnglish ? 'Delete cloud data?' : 'مسح بيانات السيرفر؟';
+  String get deleteCloudDataMessage => isEnglish
+      ? 'Classes, schedule, and lesson history will be permanently deleted from your cloud account. This device data will be cleared too.'
+      : 'سيتم حذف الفصول والجدول وسجل الدروس نهائياً من حسابك في السحابة، وسيتم مسح نسخة هذا الجهاز أيضاً.';
+  String get deviceDataCleared => isEnglish
+      ? 'Device data cleared. Cloud data will be deleted after 7 days unless restored.'
+      : 'تم مسح بيانات هذا الجهاز. سيتم حذف بيانات السيرفر بعد ٧ أيام إذا لم تتم استعادتها.';
+  String get clearDeviceDataFailed => isEnglish
+      ? 'Could not clear device data. Try again.'
+      : 'تعذر مسح بيانات هذا الجهاز. حاول مرة أخرى.';
+  String get cloudDataRestored => isEnglish
+      ? 'Cloud data restored and pending deletion cancelled.'
+      : 'تمت استعادة بيانات السيرفر وإلغاء الحذف المؤجل.';
+  String get restoreCloudDataFailed => isEnglish
+      ? 'Could not restore cloud data. Try again.'
+      : 'تعذر استعادة بيانات السيرفر. حاول مرة أخرى.';
+  String get cloudDataDeleted =>
+      isEnglish ? 'Cloud data deleted.' : 'تم مسح بيانات السيرفر.';
+  String get deleteCloudDataFailed => isEnglish
+      ? 'Could not delete cloud data. Try again.'
+      : 'تعذر مسح بيانات السيرفر. حاول مرة أخرى.';
   String get clear => isEnglish ? 'Clear' : 'مسح';
 
   String get addClassTitle => isEnglish ? 'Add class' : 'إضافة فصل';
