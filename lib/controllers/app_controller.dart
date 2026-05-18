@@ -28,11 +28,18 @@ class AppController extends ChangeNotifier {
     _signedInUserEmail = _authService?.currentUser?.email;
     _authSubscription = _authService?.authStateChanges.listen((event) {
       _signedInUserEmail = event.session?.user.email;
+      if (event.session == null) {
+        _cloudDeletionScheduledFor = null;
+      }
       notifyListeners();
       if (event.session != null) {
+        unawaited(refreshCloudDeletionRequest());
         unawaited(syncLocalDataToCloud(silent: true));
       }
     });
+    if (_signedInUserEmail != null) {
+      unawaited(refreshCloudDeletionRequest());
+    }
   }
 
   AuthService? _authService;
@@ -65,6 +72,32 @@ class AppController extends ChangeNotifier {
   DateTime? get lastCloudSyncAt => _lastCloudSyncAt;
   DateTime? get cloudDeletionScheduledFor => _cloudDeletionScheduledFor;
   String? get cloudSyncError => _cloudSyncError;
+
+  void refreshAuthState() {
+    final email = _authService?.currentUser?.email;
+    if (_signedInUserEmail == email) return;
+    _signedInUserEmail = email;
+    if (email != null) {
+      notifyListeners();
+      unawaited(refreshCloudDeletionRequest());
+    } else {
+      _cloudDeletionScheduledFor = null;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshCloudDeletionRequest() async {
+    if (_authService?.currentUser == null) return;
+    try {
+      final scheduledFor =
+          await CloudSyncService().fetchCloudDataDeletionScheduledFor();
+      _cloudDeletionScheduledFor = scheduledFor;
+      notifyListeners();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+      notifyListeners();
+    }
+  }
 
   void _load() {
     classes = StorageService.classesBox.values.toList()
@@ -578,8 +611,8 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> scheduleCloudDataDeletion() async {
-    if (_authService?.currentUser == null) return;
+  Future<bool> scheduleCloudDataDeletion() async {
+    if (_authService?.currentUser == null) return false;
     try {
       _cloudDeletionScheduledFor =
           await CloudSyncService().scheduleCloudDataDeletion();
@@ -587,19 +620,28 @@ class AppController extends ChangeNotifier {
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDeletionScheduled,
       );
+      return true;
     } catch (error) {
       _cloudSyncError = error.toString();
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDeletionFailed,
       );
+      return false;
     }
   }
 
   Future<void> cancelCloudDataDeletion() async {
     if (_authService?.currentUser == null) return;
+    if (_syncingCloud) return;
+    _syncingCloud = true;
+    _cloudSyncError = null;
+    notifyListeners();
     try {
-      await CloudSyncService().cancelCloudDataDeletion();
+      await CloudSyncService().restoreCloudDataReplaceLocal();
       _cloudDeletionScheduledFor = null;
+      _lastCloudSyncAt = DateTime.now();
+      _load();
+      await _syncClassReminders();
       notifyListeners();
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDeletionCancelled,
@@ -609,19 +651,24 @@ class AppController extends ChangeNotifier {
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDeletionCancelFailed,
       );
+    } finally {
+      _syncingCloud = false;
+      notifyListeners();
     }
   }
 
-  Future<void> signOut() async {
+  Future<bool> signOut() async {
     final authService = _authService;
-    if (authService == null) return;
+    if (authService == null) return false;
     try {
       await authService.signOut();
       _signedInUserEmail = null;
       notifyListeners();
       AppFeedbackService.showSnackBar(AppStrings(languageCode).signOutMessage);
+      return true;
     } catch (_) {
       AppFeedbackService.showSnackBar(AppStrings(languageCode).signOutFailed);
+      return false;
     }
   }
 

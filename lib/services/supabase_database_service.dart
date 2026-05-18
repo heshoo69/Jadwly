@@ -38,6 +38,7 @@ abstract class CloudDatabase {
   Future<DateTime> scheduleCloudDataDeletion({
     Duration delay = const Duration(days: 7),
   });
+  Future<DateTime?> fetchCloudDataDeletionScheduledFor();
   Future<void> cancelCloudDataDeletion();
   Future<void> deleteCloudDataForCurrentUser();
 }
@@ -297,6 +298,19 @@ class SupabaseDatabaseService implements CloudDatabase {
       onConflict: 'teacher_id',
     ).timeout(const Duration(seconds: 8));
     return scheduledFor;
+  }
+
+  @override
+  Future<DateTime?> fetchCloudDataDeletionScheduledFor() async {
+    final userId = await currentUserId();
+    final row = await _client
+        .from(cloudDataDeletionRequestsTable)
+        .select('scheduled_for')
+        .eq('teacher_id', userId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 8));
+    final value = row?['scheduled_for'];
+    return value == null ? null : DateTime.tryParse(value.toString());
   }
 
   @override

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../widgets/bottom_navigation_clearance.dart';
+import 'auth/login_screen.dart';
 import 'classes_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
@@ -22,6 +25,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  bool _redirectingToLogin = false;
 
   static const _screens = [
     HomeScreen(),
@@ -32,6 +36,17 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = context.watch<AppController>();
+    if (!controller.isSignedIn && !_redirectingToLogin) {
+      _redirectingToLogin = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (_) => false,
+        );
+      });
+    }
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
     final titles = [

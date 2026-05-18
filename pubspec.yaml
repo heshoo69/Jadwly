@@ -76,6 +76,7 @@ flutter:
 
   assets:
     - assets/images/app_icon.png
+    - assets/images/app_icon_dark.png
 
 flutter_launcher_icons:
   android: true

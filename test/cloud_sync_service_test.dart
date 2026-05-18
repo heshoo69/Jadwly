@@ -334,6 +334,11 @@ class _FakeCloudDatabase implements CloudDatabase {
   }
 
   @override
+  Future<DateTime?> fetchCloudDataDeletionScheduledFor() async {
+    return scheduledFor;
+  }
+
+  @override
   Future<void> cancelCloudDataDeletion() async {
     cancelDeletionCalls++;
   }

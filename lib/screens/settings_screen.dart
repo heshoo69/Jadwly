@@ -24,6 +24,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   late final TextEditingController _nameController;
   String _appVersion = '...';
+  bool _isEditingTeacherName = false;
+  bool _requestedCloudDeletionRefresh = false;
 
   @override
   void initState() {
@@ -35,8 +37,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final name = context.watch<AppController>().teacherName;
-    if (_nameController.text != name) _nameController.text = name;
+    final controller = context.watch<AppController>();
+    final name = controller.teacherName;
+    if (!_isEditingTeacherName && _nameController.text != name) {
+      _nameController.text = name;
+    }
+    if (!_requestedCloudDeletionRefresh && controller.isSignedIn) {
+      _requestedCloudDeletionRefresh = true;
+      Future.microtask(controller.refreshCloudDeletionRequest);
+    }
   }
 
   @override
@@ -63,6 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final controller = context.watch<AppController>();
     final strings = AppStrings(controller.languageCode);
     final theme = Theme.of(context);
+    const signOutColor = Color(0xFFB91C1C);
     final bottomClearance = BottomNavigationClearance.of(context);
     const weekStartOptions = [
       DateTime.sunday,
@@ -84,39 +94,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: strings.account,
                 child: Column(
                   children: [
-                    TextField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: strings.teacherName,
-                        prefixIcon: const Icon(Icons.person_outline),
+                    if (controller.teacherName.isNotEmpty &&
+                        !_isEditingTeacherName) ...[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.person_outline),
+                        title: Text(strings.teacherName),
+                        subtitle: Text(controller.teacherName),
                       ),
-                      onSubmitted: controller.saveTeacherName,
-                    ),
+                    ] else ...[
+                      TextField(
+                        controller: _nameController,
+                        decoration: InputDecoration(
+                          labelText: strings.teacherName,
+                          prefixIcon: const Icon(Icons.person_outline),
+                        ),
+                        onSubmitted: (value) =>
+                            _saveTeacherName(controller, value),
+                      ),
+                    ],
+                    if (controller.signedInUserEmail != null) ...[
+                      const SizedBox(height: 14),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.alternate_email_outlined),
+                        title: Text(strings.email),
+                        subtitle: Text(controller.signedInUserEmail ?? ''),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () =>
-                            controller.saveTeacherName(_nameController.text),
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(strings.saveName),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _AccountSyncPanel(
-                      controller: controller,
-                      lastSyncText: _formatSyncDate(
-                        controller.lastCloudSyncAt,
-                        controller.languageCode,
-                      ),
-                      onSignIn: () => _openLogin(context),
-                      onSyncNow: () => controller.syncLocalDataToCloud(),
-                      onRestoreCloud: () =>
-                          _confirmRestoreCloudData(context, controller),
-                      onDeleteCloud: () =>
-                          _confirmScheduleCloudDeletion(context, controller),
-                      onCancelCloudDeletion: controller.cancelCloudDataDeletion,
-                      onSignOut: controller.signOut,
+                      child: controller.teacherName.isNotEmpty &&
+                              !_isEditingTeacherName
+                          ? OutlinedButton.icon(
+                              onPressed: () =>
+                                  setState(() => _isEditingTeacherName = true),
+                              icon: const Icon(Icons.edit_outlined),
+                              label: Text(strings.editName),
+                            )
+                          : FilledButton.icon(
+                              onPressed: () => _saveTeacherName(
+                                controller,
+                                _nameController.text,
+                              ),
+                              icon: const Icon(Icons.save_outlined),
+                              label: Text(strings.saveName),
+                            ),
                     ),
                   ],
                 ),
@@ -223,52 +247,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 16),
               _SettingsSection(
                 title: strings.data,
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _addDemoData(context, controller),
-                        icon: const Icon(Icons.auto_awesome_outlined),
-                        label: Text(strings.addDemoData),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(
-                          foregroundColor: theme.colorScheme.error,
-                        ),
-                        onPressed: () => _confirmClear(context, controller),
-                        icon: const Icon(Icons.delete_outline),
-                        label: Text(strings.clearLocalData),
-                      ),
-                    ),
-                  ],
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _addDemoData(context, controller),
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                    label: Text(strings.addDemoData),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               _SettingsSection(
                 title: strings.backup,
-                child: _BackupSettings(
-                  controller: controller,
-                  lastBackupText: _formatBackupDate(
-                    controller.lastBackupDate,
-                    controller.languageCode,
-                  ),
-                  onRetry: () => _retryBackup(context, controller),
-                  onRestoreLatest: () =>
-                      _confirmRestoreLatestBackup(context, controller),
-                  onRestoreFromFile: () =>
-                      _confirmRestoreFromFile(context, controller),
-                  onExportBackup: (origin) => _exportBackup(
-                    context,
-                    controller,
-                    sharePositionOrigin: origin,
-                  ),
-                  onSaveBackupToFiles: () =>
-                      _saveBackupToFiles(context, controller),
+                child: Column(
+                  children: [
+                    _AccountSyncPanel(
+                      controller: controller,
+                      lastSyncText: _formatSyncDate(
+                        controller.lastCloudSyncAt,
+                        controller.languageCode,
+                      ),
+                      onSyncNow: () => controller.syncLocalDataToCloud(),
+                      onRestoreCloud: () =>
+                          _confirmRestoreCloudData(context, controller),
+                      onDeleteCloud: () =>
+                          _confirmScheduleCloudDeletion(context, controller),
+                      onCancelCloudDeletion: controller.cancelCloudDataDeletion,
+                    ),
+                    const SizedBox(height: 14),
+                    _BackupSettings(
+                      onOpenAdvancedOptions: () =>
+                          _openAdvancedOptions(context, controller),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -328,9 +339,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 16,
                 20 + bottomClearance,
               ),
-              child: _SettingsFooter(
-                version: _appVersion,
-                copyright: strings.settingsFooterCopyright,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: signOutColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: controller.isSyncingCloud
+                          ? null
+                          : () => _signOutAndReturnToLogin(
+                                context,
+                                controller,
+                              ),
+                      icon: const Icon(Icons.logout_outlined),
+                      label: Text(strings.signOut),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsFooter(
+                    version: _appVersion,
+                    copyright: strings.settingsFooterCopyright,
+                  ),
+                ],
               ),
             ),
           ),
@@ -389,9 +424,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _openLogin(BuildContext context) {
+  Future<void> _saveTeacherName(
+    AppController controller,
+    String name,
+  ) async {
+    await controller.saveTeacherName(name);
+    if (!mounted) return;
+    setState(() => _isEditingTeacherName = false);
+  }
+
+  Future<void> _openAdvancedOptions(
+    BuildContext context,
+    AppController controller,
+  ) {
     return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _AdvancedOptionsScreen(
+          controller: controller,
+          onRestoreFromFile: (pageContext) =>
+              _confirmRestoreFromFile(pageContext, controller),
+          onExportBackup: (pageContext, origin) => _exportBackup(
+            pageContext,
+            controller,
+            sharePositionOrigin: origin,
+          ),
+          onSaveBackupToFiles: (pageContext) =>
+              _saveBackupToFiles(pageContext, controller),
+          onClearLocalData: (pageContext) =>
+              _confirmClear(pageContext, controller),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _signOutAndReturnToLogin(
+    BuildContext context,
+    AppController controller,
+  ) async {
+    final strings = AppStrings(controller.languageCode);
+    const signOutColor = Color(0xFFB91C1C);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(
+          Icons.logout_rounded,
+          color: signOutColor,
+          size: 34,
+        ),
+        title: Text(
+          strings.signOutTitle,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        content: Text(
+          strings.signOutConfirmMessage,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: signOutColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(strings.signOut),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final signedOut = await controller.signOut();
+    if (!context.mounted || !signedOut) return;
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
     );
   }
 
@@ -445,7 +561,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirmed == true) {
-      await controller.scheduleCloudDataDeletion();
+      final scheduled = await controller.scheduleCloudDataDeletion();
+      if (scheduled) await controller.clearAllData();
     }
   }
 
@@ -534,56 +651,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed == true) controller.clearAllData();
   }
 
-  String _formatBackupDate(DateTime? date, String languageCode) {
-    final strings = AppStrings(languageCode);
-    if (date == null) return strings.noBackupYet;
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '${formatLocalizedDate(date, languageCode)} $hour:$minute';
-  }
-
   String _formatSyncDate(DateTime? date, String languageCode) {
     final strings = AppStrings(languageCode);
     if (date == null) return strings.neverSynced;
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '${formatLocalizedDate(date, languageCode)} $hour:$minute';
-  }
-
-  Future<void> _retryBackup(
-    BuildContext context,
-    AppController controller,
-  ) async {
-    final strings = AppStrings(controller.languageCode);
-    final saved = await controller.retryAutomaticBackup();
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content:
-            Text(saved ? strings.backupSaved : strings.automaticBackupFailed),
-      ),
-    );
-  }
-
-  Future<void> _confirmRestoreLatestBackup(
-    BuildContext context,
-    AppController controller,
-  ) async {
-    final confirmed = await _confirmRestore(context, controller);
-    if (confirmed != true) return;
-    final strings = AppStrings(controller.languageCode);
-    try {
-      await controller.restoreLatestAutomaticBackup();
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(strings.backupRestored)),
-      );
-    } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_restoreErrorMessage(strings, error))),
-      );
-    }
   }
 
   Future<void> _confirmRestoreFromFile(
@@ -696,22 +769,18 @@ class _AccountSyncPanel extends StatelessWidget {
   const _AccountSyncPanel({
     required this.controller,
     required this.lastSyncText,
-    required this.onSignIn,
     required this.onSyncNow,
     required this.onRestoreCloud,
     required this.onDeleteCloud,
     required this.onCancelCloudDeletion,
-    required this.onSignOut,
   });
 
   final AppController controller;
   final String lastSyncText;
-  final VoidCallback onSignIn;
   final VoidCallback onSyncNow;
   final VoidCallback onRestoreCloud;
   final VoidCallback onDeleteCloud;
   final VoidCallback onCancelCloudDeletion;
-  final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -737,11 +806,7 @@ class _AccountSyncPanel extends StatelessWidget {
               signedIn ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
             ),
             title: Text(signedIn ? strings.cloudSync : strings.signedOut),
-            subtitle: Text(
-              signedIn
-                  ? '${strings.signedInAs} ${controller.signedInUserEmail ?? ''}'
-                  : strings.signInToSync,
-            ),
+            subtitle: signedIn ? null : Text(strings.signInToSync),
           ),
           if (signedIn) ...[
             ListTile(
@@ -761,55 +826,51 @@ class _AccountSyncPanel extends StatelessWidget {
                   ),
                 ),
               ),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: controller.isSyncingCloud ? null : onSyncNow,
-                    icon: controller.isSyncingCloud
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.sync_outlined),
-                    label: Text(
-                      controller.isSyncingCloud
-                          ? strings.syncing
-                          : strings.syncNow,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: controller.isSyncingCloud ? null : onSignOut,
-                    icon: const Icon(Icons.logout_outlined),
-                    label: Text(strings.signOut),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: controller.isSyncingCloud ? null : onRestoreCloud,
-                icon: const Icon(Icons.cloud_download_outlined),
-                label: Text(strings.restoreCloudData),
+              child: FilledButton.icon(
+                onPressed: controller.isSyncingCloud ? null : onSyncNow,
+                icon: controller.isSyncingCloud
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync_outlined),
+                label: Text(
+                  controller.isSyncingCloud ? strings.syncing : strings.syncNow,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             if (controller.cloudDeletionScheduledFor == null)
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  onPressed: controller.isSyncingCloud ? null : onDeleteCloud,
-                  icon: const Icon(Icons.cloud_off_outlined),
-                  label: Text(strings.deleteCloudData),
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          controller.isSyncingCloud ? null : onRestoreCloud,
+                      icon: const Icon(Icons.cloud_download_outlined),
+                      label: Text(strings.restoreCloudData),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed:
+                          controller.isSyncingCloud ? null : onDeleteCloud,
+                      icon: const Icon(Icons.cloud_off_outlined),
+                      label: Text(strings.deleteCloudData),
+                    ),
+                  ),
+                ],
               )
-            else
+            else ...[
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(
@@ -819,12 +880,8 @@ class _AccountSyncPanel extends StatelessWidget {
                   label: Text(strings.cancelCloudDeletion),
                 ),
               ),
-          ] else
-            FilledButton.icon(
-              onPressed: onSignIn,
-              icon: const Icon(Icons.login_outlined),
-              label: Text(strings.signIn),
-            ),
+            ],
+          ],
         ],
       ),
     );
@@ -833,117 +890,113 @@ class _AccountSyncPanel extends StatelessWidget {
 
 class _BackupSettings extends StatelessWidget {
   const _BackupSettings({
+    required this.onOpenAdvancedOptions,
+  });
+
+  final VoidCallback onOpenAdvancedOptions;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onOpenAdvancedOptions,
+        icon: const Icon(Icons.tune_outlined),
+        label: Text(strings.advancedOptions),
+      ),
+    );
+  }
+}
+
+class _AdvancedOptionsScreen extends StatelessWidget {
+  const _AdvancedOptionsScreen({
     required this.controller,
-    required this.lastBackupText,
-    required this.onRetry,
-    required this.onRestoreLatest,
     required this.onRestoreFromFile,
     required this.onExportBackup,
     required this.onSaveBackupToFiles,
+    required this.onClearLocalData,
   });
 
   final AppController controller;
-  final String lastBackupText;
-  final VoidCallback onRetry;
-  final VoidCallback onRestoreLatest;
-  final VoidCallback onRestoreFromFile;
-  final ValueChanged<Rect?> onExportBackup;
-  final VoidCallback onSaveBackupToFiles;
+  final ValueChanged<BuildContext> onRestoreFromFile;
+  final void Function(BuildContext context, Rect? origin) onExportBackup;
+  final ValueChanged<BuildContext> onSaveBackupToFiles;
+  final ValueChanged<BuildContext> onClearLocalData;
 
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings(controller.languageCode);
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          strings.backupDescription,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.backup_outlined),
-          title: Text(strings.lastBackup),
-          subtitle: Text(lastBackupText),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.cloud_done_outlined),
-          title: Text(controller.getBackupStatusLabel()),
-        ),
-        if (controller.automaticBackupFailed) ...[
-          const SizedBox(height: 8),
-          Text(
-            strings.automaticBackupFailed,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.error,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.save_outlined),
-              label: Text(strings.saveBackupNow),
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: onRestoreLatest,
-            icon: const Icon(Icons.restore_outlined),
-            label: Text(strings.restoreLatestAutomaticBackup),
-          ),
-        ),
-        const SizedBox(height: 8),
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.tune_outlined),
-          title: Text(strings.advancedOptions),
+    final bottomClearance = BottomNavigationClearance.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(strings.advancedOptionsTitle),
+      ),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 20 + bottomClearance),
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: onSaveBackupToFiles,
-                icon: const Icon(Icons.folder_copy_outlined),
-                label: Text(strings.saveBackupToFiles),
-              ),
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: Builder(
-                builder: (buttonContext) {
-                  return TextButton.icon(
-                    onPressed: () => onExportBackup(
-                      _shareOriginForContext(buttonContext),
+            _SettingsSection(
+              title: strings.backup,
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => onSaveBackupToFiles(context),
+                      icon: const Icon(Icons.folder_copy_outlined),
+                      label: Text(strings.saveBackupToFiles),
                     ),
-                    icon: const Icon(Icons.ios_share_outlined),
-                    label: Text(strings.exportBackupFile),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Builder(
+                      builder: (buttonContext) {
+                        return OutlinedButton.icon(
+                          onPressed: () => onExportBackup(
+                            context,
+                            _shareOriginForContext(buttonContext),
+                          ),
+                          icon: const Icon(Icons.ios_share_outlined),
+                          label: Text(strings.exportBackupFile),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => onRestoreFromFile(context),
+                      icon: const Icon(Icons.upload_file_outlined),
+                      label: Text(strings.restoreFromFile),
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: onRestoreFromFile,
-                icon: const Icon(Icons.upload_file_outlined),
-                label: Text(strings.restoreFromFile),
+            const SizedBox(height: 16),
+            _SettingsSection(
+              title: strings.data,
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                  ),
+                  onPressed: () => onClearLocalData(context),
+                  icon: const Icon(Icons.delete_outline),
+                  label: Text(strings.clearLocalData),
+                ),
               ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 }

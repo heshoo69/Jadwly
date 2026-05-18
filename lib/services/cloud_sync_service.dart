@@ -122,6 +122,10 @@ class CloudSyncService {
     return _database.scheduleCloudDataDeletion();
   }
 
+  Future<DateTime?> fetchCloudDataDeletionScheduledFor() {
+    return _database.fetchCloudDataDeletionScheduledFor();
+  }
+
   Future<void> cancelCloudDataDeletion() {
     return _database.cancelCloudDataDeletion();
   }

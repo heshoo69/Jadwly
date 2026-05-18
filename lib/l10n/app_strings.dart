@@ -154,9 +154,14 @@ class AppStrings {
 
   String get account => isEnglish ? 'Account' : 'الحساب';
   String get teacherName => isEnglish ? 'Teacher name' : 'اسم المعلم';
-  String get saveName => isEnglish ? 'Save name' : 'حفظ الاسم';
+  String get saveName => isEnglish ? 'Save' : 'حفظ';
+  String get editName => isEnglish ? 'Edit' : 'تعديل';
   String get signIn => isEnglish ? 'Sign in' : 'تسجيل الدخول';
   String get signOut => isEnglish ? 'Sign out' : 'تسجيل الخروج';
+  String get signOutTitle => isEnglish ? 'Sign out?' : 'تسجيل الخروج؟';
+  String get signOutConfirmMessage => isEnglish
+      ? 'Your session will end and you will return to the sign-in screen.'
+      : 'سيتم إنهاء جلستك والرجوع إلى صفحة تسجيل الدخول.';
   String get signedOut => isEnglish ? 'Not signed in' : 'لم يتم تسجيل الدخول';
   String get signedInAs => isEnglish ? 'Signed in as' : 'تم تسجيل الدخول باسم';
   String get signInToSync => isEnglish
@@ -198,8 +203,8 @@ class AppStrings {
   String get deleteCloudDataTitle =>
       isEnglish ? 'Schedule cloud deletion?' : 'جدولة حذف بيانات السحابة؟';
   String get deleteCloudDataMessage => isEnglish
-      ? 'Cloud data will be deleted after 7 days unless you cancel deletion or restore from cloud first.'
-      : 'سيتم حذف بيانات السحابة بعد ٧ أيام إلا إذا ألغيت الحذف أو استعدت من السحابة قبل ذلك.';
+      ? 'Cloud data will be scheduled for deletion after 7 days, and local data on this device will be cleared now.'
+      : 'ستتم جدولة حذف بيانات السحابة بعد ٧ أيام، وسيتم مسح البيانات المحلية على هذا الجهاز الآن.';
   String get cloudDeletionScheduled => isEnglish
       ? 'Cloud deletion scheduled after 7 days.'
       : 'تمت جدولة حذف بيانات السحابة بعد ٧ أيام.';
@@ -254,6 +259,7 @@ class AppStrings {
       isEnglish ? 'Open haf-dev.com' : 'فتح haf-dev.com';
   String get supportAndContact =>
       isEnglish ? 'Support & Contact' : 'الدعم والتواصل';
+  String get support => isEnglish ? 'Support' : 'الدعم';
   String get whatsappSupport =>
       isEnglish ? 'WhatsApp Support' : 'الدعم عبر واتساب';
   String get supportEmail => isEnglish ? 'Support Email' : 'بريد الدعم';
@@ -326,6 +332,8 @@ class AppStrings {
       isEnglish ? 'Could not restore data' : 'تعذر استعادة البيانات';
   String get advancedOptions =>
       isEnglish ? 'Advanced options' : 'خيارات متقدمة';
+  String get advancedOptionsTitle =>
+      isEnglish ? 'Advanced options' : 'الخيارات المتقدمة';
   String get restoreFromFile =>
       isEnglish ? 'Restore from file' : 'استعادة من ملف';
   String get exportBackupFile =>

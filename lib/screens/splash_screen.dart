@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
+import 'auth/login_screen.dart';
 import 'app_shell.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -20,8 +23,12 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     _timer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
+      final controller = context.read<AppController>();
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AppShell()),
+        MaterialPageRoute(
+          builder: (_) =>
+              controller.isSignedIn ? const AppShell() : const LoginScreen(),
+        ),
       );
     });
   }
@@ -36,6 +43,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
+    final iconAsset = theme.brightness == Brightness.dark
+        ? 'assets/images/app_icon_dark.png'
+        : 'assets/images/app_icon.png';
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -77,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(32),
                     child: Image.asset(
-                      'assets/images/app_icon.png',
+                      iconAsset,
                       fit: BoxFit.cover,
                     ),
                   ),
