@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../services/google_auth_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -184,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         icon: _signingInWithGoogle
                             ? _buttonProgress(context)
                             : const Icon(Icons.g_mobiledata_rounded),
-                        label: const Text('تسجيل الدخول باستخدام Google'),
+                        label: const Text('المتابعة باستخدام Google'),
                       ),
                       if (_showAppleButton) ...[
                         const SizedBox(height: 10),
@@ -278,11 +280,13 @@ class _LoginScreenState extends State<LoginScreen> {
       _message = null;
     });
     try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'jadwali://login-callback',
-      );
+      await GoogleAuthService().signInWithGoogle();
+    } on GoogleAuthException catch (error) {
+      _showError(error.message);
     } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Google sign-in error: $error');
+      }
       _showError(_friendlyAuthError(error));
     } finally {
       if (mounted) setState(() => _signingInWithGoogle = false);

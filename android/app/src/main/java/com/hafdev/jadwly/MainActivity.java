@@ -1,4 +1,4 @@
-package com.example.jadwly;
+package com.hafdev.jadwly;
 
 import io.flutter.embedding.android.FlutterActivity;
 
