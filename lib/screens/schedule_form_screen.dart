@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../models/schedule_item.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../services/time_helpers.dart';
 import '../widgets/app_text_field.dart';
@@ -95,8 +96,11 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                             localizedDayName(day, controller.languageCode))))
                     .toList(),
                 onChanged: (value) {
+                  AnalyticsService.logFormFieldChanged(
+                    form: 'schedule',
+                    field: 'day',
+                  );
                   setState(() => _dayOfWeek = value ?? _dayOfWeek);
-                  _formKey.currentState?.validate();
                 },
               ),
               const SizedBox(height: 12),
@@ -111,6 +115,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                         child: Text('${item.className} - ${item.subject}')))
                     .toList(),
                 onChanged: (value) {
+                  AnalyticsService.logFormFieldChanged(
+                    form: 'schedule',
+                    field: 'class',
+                  );
                   final selected = controller.classById(value ?? '');
                   setState(() {
                     _classId = value;
@@ -155,7 +163,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   border: const OutlineInputBorder(),
                   suffixIcon: const Icon(Icons.schedule_outlined),
                 ),
-                onTap: () => _pickTime(_startController),
+                onTap: () => _pickTime(
+                  _startController,
+                  field: 'start_time',
+                ),
                 validator: (value) => value == null || value.trim().isEmpty
                     ? strings.startTimeRequired
                     : null,
@@ -170,7 +181,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                   border: const OutlineInputBorder(),
                   suffixIcon: const Icon(Icons.schedule_outlined),
                 ),
-                onTap: () => _pickTime(_endController),
+                onTap: () => _pickTime(
+                  _endController,
+                  field: 'end_time',
+                ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return strings.endTimeRequired;
@@ -215,6 +229,10 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    AnalyticsService.logUiAction(
+      screen: 'schedule_form',
+      action: 'submit',
+    );
     setState(() => _isSaving = true);
     final existing = widget.scheduleItem;
     final periodText = _periodController.text.trim();
@@ -243,7 +261,14 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     }
   }
 
-  Future<void> _pickTime(TextEditingController targetController) async {
+  Future<void> _pickTime(
+    TextEditingController targetController, {
+    required String field,
+  }) async {
+    AnalyticsService.logFormFieldChanged(
+      form: 'schedule',
+      field: field,
+    );
     final parsed = parseClockTime(targetController.text);
     final initialTime = parsed == null
         ? TimeOfDay.now()
@@ -267,7 +292,6 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
     );
     if (picked == null) return;
     targetController.text = formatClockTimeAmPm(picked.hour, picked.minute);
-    _formKey.currentState?.validate();
   }
 
   bool _isEndTimeAfterStart() {

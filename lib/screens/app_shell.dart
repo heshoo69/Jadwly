@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
+import '../services/analytics_service.dart';
 import '../widgets/bottom_navigation_clearance.dart';
 import 'auth/login_screen.dart';
 import 'classes_screen.dart';
@@ -33,6 +34,20 @@ class _AppShellState extends State<AppShell> {
     ClassesScreen(),
     SettingsScreen(),
   ];
+  static const _screenNames = [
+    'home',
+    'weekly_schedule',
+    'classes',
+    'settings',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnalyticsService.logScreenView(screenName: _screenNames[_index]);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +102,7 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: _GlassBottomNavigation(
         selectedIndex: _index,
-        onSelected: (value) => setState(() => _index = value),
+        onSelected: _selectTab,
         items: [
           _GlassNavigationItem(
             icon: Icons.today_outlined,
@@ -112,6 +127,12 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
     );
+  }
+
+  void _selectTab(int value) {
+    if (_index == value) return;
+    setState(() => _index = value);
+    AnalyticsService.logScreenView(screenName: _screenNames[value]);
   }
 }
 

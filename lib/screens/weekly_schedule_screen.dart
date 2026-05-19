@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../models/schedule_item.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../widgets/bottom_navigation_clearance.dart';
 import '../widgets/empty_state.dart';
@@ -36,9 +37,15 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                 ? strings.appName
                 : localizedDayName(_selectedDay, controller.languageCode),
             isWeeklyGrid: isWeeklyGrid,
-            onToggle: () => controller.setScheduleViewMode(
-              isWeeklyGrid ? 'dailyList' : 'weeklyGrid',
-            ),
+            onToggle: () {
+              AnalyticsService.logUiAction(
+                screen: 'weekly_schedule',
+                action: 'toggle_view',
+              );
+              controller.setScheduleViewMode(
+                isWeeklyGrid ? 'dailyList' : 'weeklyGrid',
+              );
+            },
           ),
           Expanded(
             child: AnimatedSwitcher(
@@ -48,7 +55,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                   : _DailyListView(
                       key: const ValueKey('daily'),
                       selectedDay: _selectedDay,
-                      onDayChanged: (day) => setState(() => _selectedDay = day),
+                      onDayChanged: _selectDay,
                     ),
             ),
           ),
@@ -58,19 +65,30 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
         padding: EdgeInsets.only(bottom: fabOffset),
         child: FloatingActionButton(
           tooltip: strings.addScheduleItem,
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ScheduleFormScreen(
-                initialDay:
-                    isWeeklyGrid ? DateTime.now().weekday : _selectedDay,
+          onPressed: () {
+            AnalyticsService.logFormOpened(form: 'schedule', mode: 'create');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ScheduleFormScreen(
+                  initialDay:
+                      isWeeklyGrid ? DateTime.now().weekday : _selectedDay,
+                ),
               ),
-            ),
-          ),
+            );
+          },
           child: const Icon(Icons.add),
         ),
       ),
     );
+  }
+
+  void _selectDay(int day) {
+    AnalyticsService.logUiAction(
+      screen: 'weekly_schedule',
+      action: 'select_day',
+    );
+    setState(() => _selectedDay = day);
   }
 }
 
@@ -201,14 +219,20 @@ class _WeeklyGridView extends StatelessWidget {
                             item: item,
                             onTap: item == null
                                 ? null
-                                : () => Navigator.push(
+                                : () {
+                                    AnalyticsService.logFormOpened(
+                                      form: 'schedule',
+                                      mode: 'edit',
+                                    );
+                                    Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => ScheduleFormScreen(
                                           scheduleItem: item,
                                         ),
                                       ),
-                                    ),
+                                    );
+                                  },
                           );
                         }),
                       ],
@@ -610,6 +634,7 @@ class _ScheduleListCard extends StatelessWidget {
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'edit') {
+                AnalyticsService.logFormOpened(form: 'schedule', mode: 'edit');
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -663,6 +688,10 @@ class _ScheduleListCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+    await AnalyticsService.logDialogAction(
+      dialog: 'delete_schedule_item',
+      action: result == true ? 'confirm' : 'cancel',
     );
     return result ?? false;
   }

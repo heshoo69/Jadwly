@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../controllers/app_controller.dart';
 import '../../l10n/app_strings.dart';
+import '../../services/analytics_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/google_auth_service.dart';
 import '../app_shell.dart';
@@ -253,9 +254,16 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _openExternalLink(
     BuildContext context,
     Uri uri, {
+    required String analyticsSource,
+    required String analyticsTarget,
     required String fallbackMessage,
   }) async {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await AnalyticsService.logSupportActionOpened(
+      source: analyticsSource,
+      target: analyticsTarget,
+      opened: opened,
+    );
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fallbackMessage)),
@@ -267,6 +275,8 @@ class _LoginScreenState extends State<LoginScreen> {
     BuildContext context, {
     required String email,
     String? subject,
+    required String analyticsSource,
+    required String analyticsTarget,
     required String fallbackMessage,
   }) async {
     final mailSubject = subject ?? 'الدعم والاقتراحات - جدولي';
@@ -276,6 +286,11 @@ class _LoginScreenState extends State<LoginScreen> {
       queryParameters: {'subject': mailSubject},
     );
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await AnalyticsService.logSupportActionOpened(
+      source: analyticsSource,
+      target: analyticsTarget,
+      opened: opened,
+    );
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fallbackMessage)),
@@ -284,6 +299,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _showSupportSheet(BuildContext context) {
+    AnalyticsService.logSupportActionOpened(
+      source: 'login',
+      target: 'support_sheet',
+      opened: true,
+    );
     final strings = AppStrings.read(context);
     final theme = Theme.of(context);
     return showModalBottomSheet<void>(
@@ -314,6 +334,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   action: (pageContext) => _openExternalLink(
                     pageContext,
                     _whatsAppSupportUri,
+                    analyticsSource: 'login',
+                    analyticsTarget: 'whatsapp',
                     fallbackMessage: '+966533801169',
                   ),
                 ),
@@ -329,6 +351,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   action: (pageContext) => _openMailApp(
                     pageContext,
                     email: 'support@haf-dev.com',
+                    analyticsSource: 'login',
+                    analyticsTarget: 'email',
                     fallbackMessage: 'support@haf-dev.com',
                   ),
                 ),
@@ -344,6 +368,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   action: (pageContext) => _openExternalLink(
                     pageContext,
                     _developerWebsiteUri,
+                    analyticsSource: 'login',
+                    analyticsTarget: 'website',
                     fallbackMessage: 'haf-dev.com',
                   ),
                 ),
@@ -370,6 +396,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final strings = AppStrings.read(context);
     final email = _emailController.text.trim();
     if (!_isValidEmail(email)) {
+      await AnalyticsService.logAuthAction(action: 'send_otp', success: false);
       _showError(strings.invalidEmail);
       return;
     }
@@ -380,12 +407,14 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await _requireAuthService().sendEmailOtp(email);
+      await AnalyticsService.logAuthAction(action: 'send_otp', success: true);
       if (!mounted) return;
       setState(() => _message = strings.otpSent);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(strings.otpSent)),
       );
     } catch (error) {
+      await AnalyticsService.logAuthAction(action: 'send_otp', success: false);
       _showError(_friendlyAuthError(error));
     } finally {
       if (mounted) setState(() => _sendingOtp = false);
@@ -397,10 +426,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final otpCode = _otpController.text.trim();
     if (!_isValidEmail(email)) {
+      await AnalyticsService.logAuthAction(
+          action: 'verify_otp', success: false);
       _showError(strings.invalidEmail);
       return;
     }
     if (otpCode.isEmpty) {
+      await AnalyticsService.logAuthAction(
+          action: 'verify_otp', success: false);
       _showError(strings.enterOtp);
       return;
     }
@@ -414,8 +447,12 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         token: otpCode,
       );
+      await AnalyticsService.logAuthAction(action: 'verify_otp', success: true);
+      await AnalyticsService.logLogin(method: 'email_otp');
       _closeAfterSignIn();
     } catch (error) {
+      await AnalyticsService.logAuthAction(
+          action: 'verify_otp', success: false);
       _showError(_friendlyAuthError(error));
     } finally {
       if (mounted) setState(() => _verifyingOtp = false);
@@ -429,10 +466,30 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       final signedIn = await _requireAuthService().signInWithGoogle();
-      if (signedIn) _closeAfterSignIn();
+      if (signedIn) {
+        await AnalyticsService.logAuthAction(
+          action: 'google_sign_in',
+          success: true,
+        );
+        await AnalyticsService.logLogin(method: 'google');
+        _closeAfterSignIn();
+      } else {
+        await AnalyticsService.logAuthAction(
+          action: 'google_sign_in',
+          success: false,
+        );
+      }
     } on GoogleAuthException catch (error) {
+      await AnalyticsService.logAuthAction(
+        action: 'google_sign_in',
+        success: false,
+      );
       _showError(error.message);
     } catch (error) {
+      await AnalyticsService.logAuthAction(
+        action: 'google_sign_in',
+        success: false,
+      );
       _showError(_friendlyAuthError(error));
     } finally {
       if (mounted) setState(() => _signingInWithGoogle = false);
@@ -446,8 +503,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await _requireAuthService().signInWithApple();
+      await AnalyticsService.logAuthAction(
+        action: 'apple_sign_in',
+        success: true,
+      );
+      await AnalyticsService.logLogin(method: 'apple');
       _closeAfterSignIn();
     } catch (error) {
+      await AnalyticsService.logAuthAction(
+        action: 'apple_sign_in',
+        success: false,
+      );
       _showError(_friendlyAuthError(error));
     } finally {
       if (mounted) setState(() => _signingInWithApple = false);

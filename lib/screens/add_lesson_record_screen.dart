@@ -6,6 +6,7 @@ import '../l10n/app_strings.dart';
 import '../models/lesson_record.dart';
 import '../models/lesson_status.dart';
 import '../models/session_type.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../widgets/app_text_field.dart';
 
@@ -92,7 +93,13 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
                       ),
                     )
                     .toList(),
-                onChanged: (value) => setState(() => _classId = value),
+                onChanged: (value) {
+                  AnalyticsService.logFormFieldChanged(
+                    form: 'lesson',
+                    field: 'class',
+                  );
+                  setState(() => _classId = value);
+                },
                 validator: (value) =>
                     value == null ? strings.selectClass : null,
               ),
@@ -116,8 +123,13 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
                         value: type,
                         child: Text(type.label(controller.languageCode))))
                     .toList(),
-                onChanged: (value) =>
-                    setState(() => _sessionType = value ?? _sessionType),
+                onChanged: (value) {
+                  AnalyticsService.logFormFieldChanged(
+                    form: 'lesson',
+                    field: 'lesson_type',
+                  );
+                  setState(() => _sessionType = value ?? _sessionType);
+                },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<LessonStatus>(
@@ -131,8 +143,13 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
                         value: status,
                         child: Text(status.label(controller.languageCode))))
                     .toList(),
-                onChanged: (value) =>
-                    setState(() => _status = value ?? _status),
+                onChanged: (value) {
+                  AnalyticsService.logFormFieldChanged(
+                    form: 'lesson',
+                    field: 'lesson_status',
+                  );
+                  setState(() => _status = value ?? _status);
+                },
               ),
               const SizedBox(height: 12),
               ListTile(
@@ -171,6 +188,7 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
   }
 
   Future<void> _pickDate() async {
+    AnalyticsService.logFormFieldChanged(form: 'lesson', field: 'date');
     final picked = await showDatePicker(
       context: context,
       initialDate: _date,
@@ -182,6 +200,10 @@ class _AddLessonRecordScreenState extends State<AddLessonRecordScreen> {
 
   Future<void> _save(AppController controller) async {
     if (!_formKey.currentState!.validate()) return;
+    AnalyticsService.logUiAction(
+      screen: 'lesson_form',
+      action: 'submit',
+    );
     final existingLesson = widget.lessonRecord;
     final record = LessonRecord(
       id: existingLesson?.id ?? newId(),

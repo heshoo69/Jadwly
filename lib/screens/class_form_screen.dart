@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
 import '../models/teacher_class.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../widgets/app_text_field.dart';
 
@@ -99,6 +100,7 @@ class _ClassFormScreenState extends State<ClassFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    AnalyticsService.logUiAction(screen: 'class_form', action: 'submit');
     final existing = widget.teacherClass;
     final item = TeacherClass(
       id: existing?.id ?? newId(),

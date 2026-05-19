@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../widgets/bottom_navigation_clearance.dart';
 import 'auth/login_screen.dart';
@@ -296,6 +297,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onTap: () => _openExternalLink(
                         context,
                         _whatsAppSupportUri,
+                        analyticsSource: 'settings',
+                        analyticsTarget: 'whatsapp',
                         fallbackMessage: '+966533801169',
                       ),
                     ),
@@ -307,6 +310,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onTap: () => _openMailApp(
                         context,
                         email: 'support@haf-dev.com',
+                        analyticsSource: 'settings',
+                        analyticsTarget: 'email',
                         fallbackMessage: 'support@haf-dev.com',
                       ),
                     ),
@@ -318,6 +323,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onTap: () => _openExternalLink(
                         context,
                         _developerWebsiteUri,
+                        analyticsSource: 'settings',
+                        analyticsTarget: 'website',
                         fallbackMessage: 'haf-dev.com',
                       ),
                     ),
@@ -377,9 +384,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openExternalLink(
     BuildContext context,
     Uri uri, {
+    required String analyticsSource,
+    required String analyticsTarget,
     required String fallbackMessage,
   }) async {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await AnalyticsService.logSupportActionOpened(
+      source: analyticsSource,
+      target: analyticsTarget,
+      opened: opened,
+    );
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fallbackMessage)),
@@ -391,6 +405,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     BuildContext context, {
     required String email,
     String? subject,
+    required String analyticsSource,
+    required String analyticsTarget,
     required String fallbackMessage,
   }) async {
     final mailSubject = subject ?? 'الدعم والاقتراحات - جدولي';
@@ -400,6 +416,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       queryParameters: {'subject': mailSubject},
     );
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await AnalyticsService.logSupportActionOpened(
+      source: analyticsSource,
+      target: analyticsTarget,
+      opened: opened,
+    );
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(fallbackMessage)),
@@ -437,6 +458,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     BuildContext context,
     AppController controller,
   ) {
+    AnalyticsService.logAdvancedOptionsOpened();
     return Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _AdvancedOptionsScreen(
@@ -502,6 +524,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+    await AnalyticsService.logDialogAction(
+      dialog: 'sign_out',
+      action: confirmed == true ? 'confirm' : 'cancel',
+    );
     if (confirmed != true) return;
     final signedOut = await controller.signOut();
     if (!context.mounted || !signedOut) return;
@@ -533,6 +559,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+    await AnalyticsService.logDialogAction(
+      dialog: 'restore_cloud_data',
+      action: confirmed == true ? 'confirm' : 'cancel',
+    );
     if (confirmed == true) {
       await controller.restoreCloudDataReplaceLocal();
     }
@@ -560,6 +590,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+    await AnalyticsService.logDialogAction(
+      dialog: 'delete_cloud_data',
+      action: confirmed == true ? 'confirm' : 'cancel',
+    );
     if (confirmed == true) {
       final scheduled = await controller.scheduleCloudDataDeletion();
       if (scheduled) await controller.clearAllData();
@@ -582,6 +616,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     BuildContext context,
     AppController controller,
   ) async {
+    AnalyticsService.logUiAction(
+      screen: 'settings',
+      action: 'open_language_picker',
+    );
     final strings = AppStrings(controller.languageCode);
     final selected = await showModalBottomSheet<String>(
       context: context,
@@ -648,6 +686,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+    await AnalyticsService.logDialogAction(
+      dialog: 'clear_local_data',
+      action: confirmed == true ? 'confirm' : 'cancel',
+    );
     if (confirmed == true) controller.clearAllData();
   }
 
@@ -664,6 +706,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AppController controller,
   ) async {
     final confirmed = await _confirmRestore(context, controller);
+    await AnalyticsService.logDialogAction(
+      dialog: 'restore_backup_from_file',
+      action: confirmed == true ? 'confirm' : 'cancel',
+    );
     if (confirmed != true) return;
     final strings = AppStrings(controller.languageCode);
     try {

@@ -7,6 +7,7 @@ import '../models/lesson_record.dart';
 import '../models/lesson_status.dart';
 import '../models/session_type.dart';
 import '../models/teacher_class.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/info_chip.dart';
@@ -48,13 +49,16 @@ class ClassDetailsScreen extends StatelessWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                AddLessonRecordScreen(initialClassId: teacherClass.id),
-          ),
-        ),
+        onPressed: () {
+          AnalyticsService.logFormOpened(form: 'lesson', mode: 'create');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  AddLessonRecordScreen(initialClassId: teacherClass.id),
+            ),
+          );
+        },
         icon: const Icon(Icons.add),
         label: Text(strings.newLesson),
       ),
@@ -163,15 +167,21 @@ class ClassDetailsScreen extends StatelessWidget {
                   languageCode: controller.languageCode,
                   isFirst: index == 0,
                   isLast: index == lessons.length - 1,
-                  onEdit: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddLessonRecordScreen(
-                        initialClassId: teacherClass.id,
-                        lessonRecord: lessons[index],
+                  onEdit: () {
+                    AnalyticsService.logFormOpened(
+                      form: 'lesson',
+                      mode: 'edit',
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddLessonRecordScreen(
+                          initialClassId: teacherClass.id,
+                          lessonRecord: lessons[index],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                   onDelete: () async {
                     final lesson = lessons[index];
                     final confirmed = await _confirmDeleteLesson(
@@ -214,6 +224,10 @@ class ClassDetailsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+    await AnalyticsService.logDialogAction(
+      dialog: 'delete_lesson',
+      action: result == true ? 'confirm' : 'cancel',
     );
     return result ?? false;
   }

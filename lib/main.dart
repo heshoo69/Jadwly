@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'controllers/app_controller.dart';
+import 'firebase_options.dart';
 import 'l10n/app_strings.dart';
 import 'screens/splash_screen.dart';
+import 'services/analytics_service.dart';
 import 'services/app_feedback_service.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
@@ -13,6 +16,8 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await AnalyticsService.logDebugAppOpened();
   await SupabaseService.initialize();
   await StorageService.init();
   await NotificationService.init();
@@ -49,6 +54,7 @@ class JadwaliApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: ThemeMode.system,
+            navigatorObservers: [AnalyticsService.observer],
             home: const SplashScreen(),
           );
         },

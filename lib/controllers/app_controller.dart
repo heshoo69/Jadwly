@@ -12,6 +12,7 @@ import '../models/schedule_item.dart';
 import '../models/session_type.dart';
 import '../models/teacher_class.dart';
 import '../l10n/app_strings.dart';
+import '../services/analytics_service.dart';
 import '../services/app_feedback_service.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
@@ -183,11 +184,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveTeacherClass(TeacherClass item) async {
+    final isEditing = StorageService.classesBox.containsKey(item.id);
     await StorageService.classesBox.put(item.id, item);
     _load();
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logTeacherClassSaved(isEditing: isEditing));
     unawaited(_syncTeacherClassToCloud(item));
   }
 
@@ -212,6 +215,10 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logTeacherClassDeleted(
+      deletedScheduleCount: deletedScheduleIds.length,
+      deletedLessonCount: deletedLessonIds.length,
+    ));
     unawaited(_deleteClassTreeFromCloud(
       id,
       scheduleIds: deletedScheduleIds,
@@ -220,11 +227,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveScheduleItem(ScheduleItem item) async {
+    final isEditing = StorageService.scheduleBox.containsKey(item.id);
     await StorageService.scheduleBox.put(item.id, item);
     _load();
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logScheduleItemSaved(isEditing: isEditing));
     unawaited(_syncScheduleItemToCloud(item));
   }
 
@@ -234,6 +243,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logScheduleItemDeleted());
     unawaited(_deleteScheduleItemFromCloud(id));
   }
 
@@ -243,6 +253,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logLessonSaved(isEditing: false));
     unawaited(_syncLessonRecordToCloud(record));
   }
 
@@ -252,6 +263,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logLessonSaved(isEditing: true));
     unawaited(_syncLessonRecordToCloud(record));
   }
 
@@ -261,6 +273,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logLessonDeleted());
     unawaited(_deleteLessonRecordFromCloud(id));
   }
 
@@ -270,6 +283,7 @@ class AppController extends ChangeNotifier {
     _load();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logTeacherNameUpdated());
     unawaited(_saveProfileNameToCloud(trimmedName));
   }
 
@@ -279,6 +293,11 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logLanguageChanged(languageCode: code));
+    unawaited(AnalyticsService.logSettingsChanged(
+      setting: 'language',
+      value: code,
+    ));
   }
 
   Future<void> clearAllData() async {
@@ -298,6 +317,7 @@ class AppController extends ChangeNotifier {
     await BackupService.restoreBackupMetadataSnapshot(backupMetadata);
     _load();
     notifyListeners();
+    unawaited(AnalyticsService.logLocalDataCleared());
   }
 
   Future<bool> setNotificationsEnabled(bool enabled) async {
@@ -307,6 +327,10 @@ class AppController extends ChangeNotifier {
       _load();
       await _createAutomaticBackup();
       notifyListeners();
+      unawaited(AnalyticsService.logSettingsChanged(
+        setting: 'notifications',
+        enabled: false,
+      ));
       unawaited(_saveReminderSettingsToCloud());
       return true;
     }
@@ -321,6 +345,10 @@ class AppController extends ChangeNotifier {
     }
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logSettingsChanged(
+      setting: 'notifications',
+      enabled: granted,
+    ));
     unawaited(_saveReminderSettingsToCloud());
     return granted;
   }
@@ -331,6 +359,10 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logSettingsChanged(
+      setting: 'reminder_minutes',
+      numericValue: minutes,
+    ));
     unawaited(_saveReminderSettingsToCloud());
   }
 
@@ -339,6 +371,10 @@ class AppController extends ChangeNotifier {
     _load();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logSettingsChanged(
+      setting: 'week_start_day',
+      numericValue: day,
+    ));
   }
 
   Future<void> setShowWeekends(bool value) async {
@@ -346,6 +382,10 @@ class AppController extends ChangeNotifier {
     _load();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logSettingsChanged(
+      setting: 'show_weekends',
+      enabled: value,
+    ));
   }
 
   Future<void> setScheduleViewMode(String mode) async {
@@ -353,6 +393,10 @@ class AppController extends ChangeNotifier {
     _load();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logSettingsChanged(
+      setting: 'schedule_view_mode',
+      value: mode,
+    ));
   }
 
   Future<bool> addDemoData() async {
@@ -425,6 +469,7 @@ class AppController extends ChangeNotifier {
     await _syncClassReminders();
     await _createAutomaticBackup();
     notifyListeners();
+    unawaited(AnalyticsService.logDemoDataAdded());
     return true;
   }
 
@@ -432,7 +477,12 @@ class AppController extends ChangeNotifier {
     final file = await BackupService.createAutomaticBackup();
     _load();
     notifyListeners();
-    if (file != null) return true;
+    if (file != null) {
+      unawaited(AnalyticsService.logBackupActionCompleted(
+        action: 'retry_success',
+      ));
+      return true;
+    }
 
     final shareFile = await BackupService.latestAutomaticBackupShareFile();
     if (shareFile != null) {
@@ -474,6 +524,8 @@ class AppController extends ChangeNotifier {
         sharePositionOrigin: sharePositionOrigin,
       ),
     );
+    unawaited(AnalyticsService.logBackupExported());
+    unawaited(AnalyticsService.logBackupActionCompleted(action: 'export'));
     return true;
   }
 
@@ -490,6 +542,12 @@ class AppController extends ChangeNotifier {
       allowedExtensions: ['json'],
       bytes: await backup.readAsBytes(),
     );
+    final saved = savedPath != null;
+    if (saved) {
+      unawaited(AnalyticsService.logBackupActionCompleted(
+        action: 'save_to_files',
+      ));
+    }
     return savedPath == null ? null : true;
   }
 
@@ -498,6 +556,9 @@ class AppController extends ChangeNotifier {
     _load();
     await _syncClassReminders();
     notifyListeners();
+    unawaited(AnalyticsService.logBackupActionCompleted(
+      action: 'restore_latest',
+    ));
     unawaited(_replaceCloudWithRestoredLocalData());
   }
 
@@ -529,6 +590,9 @@ class AppController extends ChangeNotifier {
     _load();
     await _syncClassReminders();
     notifyListeners();
+    unawaited(AnalyticsService.logBackupActionCompleted(
+      action: 'restore_from_file',
+    ));
     unawaited(_replaceCloudWithRestoredLocalData());
     return true;
   }
@@ -542,6 +606,7 @@ class AppController extends ChangeNotifier {
     try {
       await CloudSyncService().uploadLocalData();
       _lastCloudSyncAt = DateTime.now();
+      unawaited(AnalyticsService.logCloudSync(isAutomatic: silent));
       if (!silent) {
         AppFeedbackService.showSnackBar(
           AppStrings(languageCode).cloudSyncComplete,
@@ -570,6 +635,7 @@ class AppController extends ChangeNotifier {
       await CloudSyncService().replaceCloudWithLocalData();
       _cloudDeletionScheduledFor = null;
       _lastCloudSyncAt = DateTime.now();
+      unawaited(AnalyticsService.logCloudDataRestoreCompleted());
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).restoredBackupSyncedToCloud,
       );
@@ -597,6 +663,7 @@ class AppController extends ChangeNotifier {
       _load();
       await _syncClassReminders();
       notifyListeners();
+      unawaited(AnalyticsService.logCloudDataRestoreCompleted());
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDataRestored,
       );
@@ -620,6 +687,7 @@ class AppController extends ChangeNotifier {
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDeletionScheduled,
       );
+      unawaited(AnalyticsService.logCloudDataDeletionScheduled());
       return true;
     } catch (error) {
       _cloudSyncError = error.toString();
@@ -643,6 +711,7 @@ class AppController extends ChangeNotifier {
       _load();
       await _syncClassReminders();
       notifyListeners();
+      unawaited(AnalyticsService.logCloudDataDeletionCancelled());
       AppFeedbackService.showSnackBar(
         AppStrings(languageCode).cloudDeletionCancelled,
       );
@@ -664,6 +733,7 @@ class AppController extends ChangeNotifier {
       await authService.signOut();
       _signedInUserEmail = null;
       notifyListeners();
+      unawaited(AnalyticsService.logSignOut());
       AppFeedbackService.showSnackBar(AppStrings(languageCode).signOutMessage);
       return true;
     } catch (_) {

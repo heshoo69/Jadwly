@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
+import '../services/analytics_service.dart';
 import '../services/date_helpers.dart';
 import '../widgets/bottom_navigation_clearance.dart';
 import '../widgets/empty_state.dart';
@@ -56,14 +57,20 @@ class HomeScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(18),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ScheduleFormScreen(
-                                initialDay: today.weekday,
+                          onTap: () {
+                            AnalyticsService.logFormOpened(
+                              form: 'schedule',
+                              mode: 'create',
+                            );
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ScheduleFormScreen(
+                                  initialDay: today.weekday,
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                           child: SizedBox(
                             width: 58,
                             height: 58,
@@ -243,16 +250,22 @@ class HomeScreen extends StatelessWidget {
                                             Icons.edit_note_outlined),
                                         onPressed: teacherClass == null
                                             ? null
-                                            : () => Navigator.push(
+                                            : () {
+                                                AnalyticsService.logFormOpened(
+                                                  form: 'lesson',
+                                                  mode: 'create',
+                                                );
+                                                Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
                                                     builder: (_) =>
                                                         AddLessonRecordScreen(
-                                                            initialClassId:
-                                                                teacherClass
-                                                                    .id),
+                                                      initialClassId:
+                                                          teacherClass.id,
+                                                    ),
                                                   ),
-                                                ),
+                                                );
+                                              },
                                       ),
                                     ],
                                   ),

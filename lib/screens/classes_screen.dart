@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/app_controller.dart';
 import '../l10n/app_strings.dart';
+import '../services/analytics_service.dart';
 import '../widgets/bottom_navigation_clearance.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/lesson_summary.dart';
@@ -43,11 +44,18 @@ class ClassesScreen extends StatelessWidget {
                 final latest = controller.latestLessonForClass(item.id);
                 return InkWell(
                   borderRadius: BorderRadius.circular(18),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ClassDetailsScreen(teacherClass: item)),
-                  ),
+                  onTap: () {
+                    AnalyticsService.logUiAction(
+                      screen: 'classes',
+                      action: 'open_class_details',
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ClassDetailsScreen(teacherClass: item),
+                      ),
+                    );
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -98,6 +106,10 @@ class ClassesScreen extends StatelessWidget {
                             PopupMenuButton<String>(
                               onSelected: (value) async {
                                 if (value == 'edit') {
+                                  AnalyticsService.logFormOpened(
+                                    form: 'class',
+                                    mode: 'edit',
+                                  );
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -136,10 +148,13 @@ class ClassesScreen extends StatelessWidget {
         padding: EdgeInsets.only(bottom: fabOffset),
         child: FloatingActionButton(
           tooltip: strings.addClass,
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ClassFormScreen()),
-          ),
+          onPressed: () {
+            AnalyticsService.logFormOpened(form: 'class', mode: 'create');
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ClassFormScreen()),
+            );
+          },
           child: const Icon(Icons.add),
         ),
       ),
@@ -172,6 +187,10 @@ class ClassesScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+    await AnalyticsService.logDialogAction(
+      dialog: 'delete_class',
+      action: result == true ? 'confirm' : 'cancel',
     );
     return result ?? false;
   }
