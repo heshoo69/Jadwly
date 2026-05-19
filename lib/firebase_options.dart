@@ -15,10 +15,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'Firebase is not configured for Android. Add google-services.json '
-          'or run FlutterFire configure for com.hafdev.jadwly.',
-        );
+        return android;
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
@@ -39,5 +36,13 @@ class DefaultFirebaseOptions {
     projectId: 'jadwly-7eee2',
     storageBucket: 'jadwly-7eee2.firebasestorage.app',
     iosBundleId: 'com.hafdev.jadwly',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyAgwtOHex1Is4wNJTvzEk0a1LedE-UJSJc',
+    appId: '1:678126722694:android:62e4e0292453db12457b07',
+    messagingSenderId: '678126722694',
+    projectId: 'jadwly-7eee2',
+    storageBucket: 'jadwly-7eee2.firebasestorage.app',
   );
 }

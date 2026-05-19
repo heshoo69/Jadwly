@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "678126722694",
+    "project_id": "jadwly-7eee2",
+    "storage_bucket": "jadwly-7eee2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:678126722694:android:62e4e0292453db12457b07",
+        "android_client_info": {
+          "package_name": "com.hafdev.jadwly"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAgwtOHex1Is4wNJTvzEk0a1LedE-UJSJc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
