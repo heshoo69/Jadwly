@@ -13,11 +13,12 @@ import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'theme/app_theme.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await AnalyticsService.logDebugAppOpened();
   await SupabaseService.initialize();
   await StorageService.init();
   await NotificationService.init();
