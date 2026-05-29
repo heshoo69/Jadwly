@@ -400,6 +400,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError(strings.invalidEmail);
       return;
     }
+    if (_isLocalReviewEmail(email)) {
+      await AnalyticsService.logAuthAction(
+        action: 'send_local_review_otp',
+        success: true,
+      );
+      if (!mounted) return;
+      setState(() => _message = strings.localReviewOtpHelp);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(strings.localReviewOtpHelp)),
+      );
+      return;
+    }
 
     setState(() {
       _sendingOtp = true;
@@ -435,6 +447,25 @@ class _LoginScreenState extends State<LoginScreen> {
       await AnalyticsService.logAuthAction(
           action: 'verify_otp', success: false);
       _showError(strings.enterOtp);
+      return;
+    }
+    if (_isLocalReviewEmail(email)) {
+      if (otpCode == AppController.localReviewOtp) {
+        final controller = context.read<AppController>();
+        await AnalyticsService.logAuthAction(
+          action: 'local_review_sign_in',
+          success: true,
+        );
+        await AnalyticsService.logLogin(method: 'local_review');
+        await controller.signInLocalReviewAccount();
+        _closeAfterSignIn();
+      } else {
+        await AnalyticsService.logAuthAction(
+          action: 'local_review_sign_in',
+          success: false,
+        );
+        _showError(strings.invalidLocalReviewOtp);
+      }
       return;
     }
 
@@ -530,6 +561,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isValidEmail(String value) {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+  }
+
+  bool _isLocalReviewEmail(String value) {
+    return value.toLowerCase() == AppController.localReviewEmail;
   }
 
   String _friendlyAuthError(Object error) {

@@ -245,6 +245,11 @@ class AppStrings {
   String get otpSent => isEnglish
       ? 'A login code has been sent to your email.'
       : 'تم إرسال رمز الدخول إلى بريدك.';
+  String get localReviewOtpHelp => isEnglish
+      ? 'Use the review code provided in App Review Notes.'
+      : 'استخدم رمز المراجعة الموجود في ملاحظات مراجعة التطبيق.';
+  String get invalidLocalReviewOtp =>
+      isEnglish ? 'The review code is incorrect.' : 'رمز المراجعة غير صحيح.';
   String get preferences => isEnglish ? 'Preferences' : 'التفضيلات';
   String get weekSettings => isEnglish ? 'Week settings' : 'إعدادات الأسبوع';
   String get weekStart => isEnglish ? 'Week starts on' : 'بداية الأسبوع';

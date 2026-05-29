@@ -26,8 +26,11 @@ class AppController extends ChangeNotifier {
   AppController() {
     _load();
     _authService = AuthService.instanceOrNull;
+    _localReviewSignedIn =
+        StorageService.settingsBox.get(_localReviewSignedInKey) == true;
     _signedInUserEmail = _authService?.currentUser?.email;
     _authSubscription = _authService?.authStateChanges.listen((event) {
+      if (_localReviewSignedIn) return;
       _signedInUserEmail = event.session?.user.email;
       if (event.session == null) {
         _cloudDeletionScheduledFor = null;
@@ -52,10 +55,17 @@ class AppController extends ChangeNotifier {
   AuthService? _authService;
   StreamSubscription<AuthState>? _authSubscription;
   bool _syncingCloud = false;
+  bool _localReviewSignedIn = false;
   String? _signedInUserEmail;
   DateTime? _lastCloudSyncAt;
   DateTime? _cloudDeletionScheduledFor;
   String? _cloudSyncError;
+
+  static const localReviewEmail = 'review@jadwly.app';
+  static const localReviewOtp = '246810';
+  static const _localReviewSignedInKey = 'localReviewSignedIn';
+  static const _localReviewEmailKey = 'localReviewEmail';
+  static const _localReviewLastResetAtKey = 'localReviewLastResetAt';
 
   List<TeacherClass> classes = [];
   List<ScheduleItem> schedule = [];
@@ -73,14 +83,22 @@ class AppController extends ChangeNotifier {
   String get lastBackupError => BackupService.lastBackupError;
   String getBackupStatusLabel() =>
       BackupService.backupStatusLabel(languageCode);
-  bool get isSignedIn => _signedInUserEmail != null;
+  bool get isSignedIn => _localReviewSignedIn || _signedInUserEmail != null;
+  bool get isCloudSignedIn =>
+      !_localReviewSignedIn && _signedInUserEmail != null;
+  bool get isLocalReviewSignedIn => _localReviewSignedIn;
   bool get isSyncingCloud => _syncingCloud;
-  String? get signedInUserEmail => _signedInUserEmail;
+  String? get signedInUserEmail =>
+      _localReviewSignedIn ? localReviewEmail : _signedInUserEmail;
   DateTime? get lastCloudSyncAt => _lastCloudSyncAt;
   DateTime? get cloudDeletionScheduledFor => _cloudDeletionScheduledFor;
   String? get cloudSyncError => _cloudSyncError;
 
   void refreshAuthState() {
+    if (_localReviewSignedIn) {
+      notifyListeners();
+      return;
+    }
     final email = _authService?.currentUser?.email;
     if (_signedInUserEmail == email) return;
     _signedInUserEmail = email;
@@ -97,7 +115,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> refreshCloudDeletionRequest() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       final scheduledFor =
           await CloudSyncService().fetchCloudDataDeletionScheduledFor();
@@ -415,6 +433,11 @@ class AppController extends ChangeNotifier {
       return false;
     }
 
+    await _seedDemoData();
+    return true;
+  }
+
+  Future<void> _seedDemoData() async {
     final now = DateTime.now();
     final classOneId = newId();
     final classTwoId = '${classOneId}_2';
@@ -481,7 +504,58 @@ class AppController extends ChangeNotifier {
     await _createAutomaticBackup();
     notifyListeners();
     unawaited(AnalyticsService.logDemoDataAdded());
-    return true;
+  }
+
+  Future<void> signInLocalReviewAccount() async {
+    try {
+      await _authService?.signOut();
+    } catch (_) {
+      // A local review session must not depend on Supabase availability.
+    }
+
+    _signedInUserEmail = null;
+    _localReviewSignedIn = true;
+    await StorageService.settingsBox.put(_localReviewSignedInKey, true);
+    await StorageService.settingsBox
+        .put(_localReviewEmailKey, localReviewEmail);
+
+    final lastReset = _localReviewLastResetAt;
+    final now = DateTime.now();
+    if (lastReset == null ||
+        now.difference(lastReset) >= const Duration(days: 1)) {
+      await _resetLocalReviewData(now);
+    } else {
+      _load();
+      notifyListeners();
+    }
+  }
+
+  DateTime? get _localReviewLastResetAt {
+    final value = StorageService.settingsBox.get(_localReviewLastResetAtKey);
+    return value is DateTime ? value : null;
+  }
+
+  Future<void> _resetLocalReviewData(DateTime resetAt) async {
+    final preservedSettings = <String, Object>{
+      'languageCode': languageCode,
+      'notificationsEnabled': notificationsEnabled,
+      'reminderMinutes': reminderMinutes,
+      'weekStartDay': weekStartDay,
+      'showWeekends': showWeekends,
+      'scheduleViewMode': scheduleViewMode,
+      'teacherName': 'معلم التجربة',
+      _localReviewSignedInKey: true,
+      _localReviewEmailKey: localReviewEmail,
+      _localReviewLastResetAtKey: resetAt,
+    };
+
+    await NotificationService.cancelAllClassReminders();
+    await StorageService.classesBox.clear();
+    await StorageService.scheduleBox.clear();
+    await StorageService.lessonsBox.clear();
+    await StorageService.settingsBox.putAll(preservedSettings);
+    _load();
+    await _seedDemoData();
   }
 
   Future<bool> retryAutomaticBackup({Rect? sharePositionOrigin}) async {
@@ -609,7 +683,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> syncLocalDataToCloud({bool silent = false}) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     if (_syncingCloud) return;
     _syncingCloud = true;
     _cloudSyncError = null;
@@ -637,7 +711,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _replaceCloudWithRestoredLocalData() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     if (_syncingCloud) return;
     _syncingCloud = true;
     _cloudSyncError = null;
@@ -662,7 +736,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> restoreCloudDataReplaceLocal() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     if (_syncingCloud) return;
     _syncingCloud = true;
     _cloudSyncError = null;
@@ -690,7 +764,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> scheduleCloudDataDeletion() async {
-    if (_authService?.currentUser == null) return false;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return false;
     try {
       _cloudDeletionScheduledFor =
           await CloudSyncService().scheduleCloudDataDeletion();
@@ -710,7 +784,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> cancelCloudDataDeletion() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     if (_syncingCloud) return;
     _syncingCloud = true;
     _cloudSyncError = null;
@@ -738,6 +812,17 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> signOut() async {
+    if (_localReviewSignedIn) {
+      _localReviewSignedIn = false;
+      _signedInUserEmail = null;
+      await StorageService.settingsBox.put(_localReviewSignedInKey, false);
+      await StorageService.settingsBox.delete(_localReviewEmailKey);
+      notifyListeners();
+      unawaited(AnalyticsService.logSignOut());
+      AppFeedbackService.showSnackBar(AppStrings(languageCode).signOutMessage);
+      return true;
+    }
+
     final authService = _authService;
     if (authService == null) return false;
     try {
@@ -755,7 +840,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _syncTeacherClassToCloud(TeacherClass item) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await CloudSyncService().uploadTeacherClass(item);
       _lastCloudSyncAt = DateTime.now();
@@ -772,7 +857,7 @@ class AppController extends ChangeNotifier {
     required List<String> scheduleIds,
     required List<String> lessonIds,
   }) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       final sync = CloudSyncService();
       for (final scheduleId in scheduleIds) {
@@ -790,7 +875,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _syncScheduleItemToCloud(ScheduleItem item) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       final className = classById(item.classId)?.className ?? item.classId;
       await CloudSyncService().uploadScheduleItem(
@@ -807,7 +892,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _deleteScheduleItemFromCloud(String id) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await CloudSyncService().deleteScheduleItem(id);
       _lastCloudSyncAt = DateTime.now();
@@ -818,7 +903,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _syncLessonRecordToCloud(LessonRecord record) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       final teacherClass = classById(record.classId);
       await CloudSyncService().uploadLessonRecord(
@@ -836,7 +921,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _deleteLessonRecordFromCloud(String id) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await CloudSyncService().deleteLessonRecord(id);
       _lastCloudSyncAt = DateTime.now();
@@ -847,7 +932,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _saveProfileNameToCloud(String name) async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await CloudSyncService().saveProfileName(name);
       _lastCloudSyncAt = DateTime.now();
@@ -857,7 +942,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _saveReminderSettingsToCloud() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await CloudSyncService().saveReminderSettings(
         notificationsEnabled: notificationsEnabled,
@@ -870,7 +955,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _registerFcmTokenForCurrentUser() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await NotificationService.registerCurrentDeviceToken();
     } catch (error) {
@@ -879,7 +964,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _deleteFcmTokenForCurrentUser() async {
-    if (_authService?.currentUser == null) return;
+    if (_localReviewSignedIn || _authService?.currentUser == null) return;
     try {
       await NotificationService.deleteCurrentDeviceToken();
     } catch (error) {

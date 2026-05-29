@@ -165,6 +165,123 @@ void main() {
     await backupDir.delete(recursive: true);
     BackupService.setTestBackupDirectory(null);
   });
+
+  test('local review sign-in seeds demo data and signs in locally', () async {
+    final tempDir = await Directory.systemTemp.createTemp('jadwly_controller_');
+    final backupDir =
+        await Directory.systemTemp.createTemp('jadwly_controller_backups_');
+    BackupService.setTestBackupDirectory(backupDir);
+    await StorageService.init(testPath: tempDir.path);
+
+    final controller = AppController();
+    await controller.signInLocalReviewAccount();
+
+    expect(controller.isSignedIn, isTrue);
+    expect(controller.isCloudSignedIn, isFalse);
+    expect(controller.isLocalReviewSignedIn, isTrue);
+    expect(controller.signedInUserEmail, AppController.localReviewEmail);
+    expect(controller.classes, hasLength(2));
+    expect(controller.schedule, hasLength(2));
+    expect(controller.lessons, hasLength(1));
+    expect(StorageService.settingsBox.get('localReviewLastResetAt'),
+        isA<DateTime>());
+
+    await Hive.close();
+    await tempDir.delete(recursive: true);
+    await backupDir.delete(recursive: true);
+    BackupService.setTestBackupDirectory(null);
+  });
+
+  test('local review sign-in keeps edits before 24 hours', () async {
+    final tempDir = await Directory.systemTemp.createTemp('jadwly_controller_');
+    final backupDir =
+        await Directory.systemTemp.createTemp('jadwly_controller_backups_');
+    BackupService.setTestBackupDirectory(backupDir);
+    await StorageService.init(testPath: tempDir.path);
+
+    final controller = AppController();
+    await StorageService.settingsBox.put(
+      'localReviewLastResetAt',
+      DateTime.now().subtract(const Duration(hours: 2)),
+    );
+    await controller.signInLocalReviewAccount();
+    await controller.saveTeacherClass(
+      TeacherClass(
+        id: 'custom-class',
+        className: 'Custom Class',
+        subject: 'Science',
+        createdAt: DateTime(2026, 5, 14),
+      ),
+    );
+
+    final secondController = AppController();
+    await secondController.signInLocalReviewAccount();
+
+    expect(secondController.classes.map((item) => item.id),
+        contains('custom-class'));
+
+    await Hive.close();
+    await tempDir.delete(recursive: true);
+    await backupDir.delete(recursive: true);
+    BackupService.setTestBackupDirectory(null);
+  });
+
+  test('local review sign-in resets edits after 24 hours', () async {
+    final tempDir = await Directory.systemTemp.createTemp('jadwly_controller_');
+    final backupDir =
+        await Directory.systemTemp.createTemp('jadwly_controller_backups_');
+    BackupService.setTestBackupDirectory(backupDir);
+    await StorageService.init(testPath: tempDir.path);
+    await StorageService.classesBox.put(
+      'custom-class',
+      TeacherClass(
+        id: 'custom-class',
+        className: 'Custom Class',
+        subject: 'Science',
+        createdAt: DateTime(2026, 5, 14),
+      ),
+    );
+    await StorageService.settingsBox.put(
+      'localReviewLastResetAt',
+      DateTime.now().subtract(const Duration(hours: 25)),
+    );
+
+    final controller = AppController();
+    await controller.signInLocalReviewAccount();
+
+    expect(controller.classes.map((item) => item.id),
+        isNot(contains('custom-class')));
+    expect(controller.classes, hasLength(2));
+    expect(controller.schedule, hasLength(2));
+    expect(controller.lessons, hasLength(1));
+
+    await Hive.close();
+    await tempDir.delete(recursive: true);
+    await backupDir.delete(recursive: true);
+    BackupService.setTestBackupDirectory(null);
+  });
+
+  test('local review sign-out clears only local session', () async {
+    final tempDir = await Directory.systemTemp.createTemp('jadwly_controller_');
+    final backupDir =
+        await Directory.systemTemp.createTemp('jadwly_controller_backups_');
+    BackupService.setTestBackupDirectory(backupDir);
+    await StorageService.init(testPath: tempDir.path);
+
+    final controller = AppController();
+    await controller.signInLocalReviewAccount();
+    final signedOut = await controller.signOut();
+
+    expect(signedOut, isTrue);
+    expect(controller.isSignedIn, isFalse);
+    expect(controller.signedInUserEmail, isNull);
+    expect(StorageService.settingsBox.get('localReviewSignedIn'), isFalse);
+
+    await Hive.close();
+    await tempDir.delete(recursive: true);
+    await backupDir.delete(recursive: true);
+    BackupService.setTestBackupDirectory(null);
+  });
 }
 
 class _FakeNotificationsPlatform extends FlutterLocalNotificationsPlatform

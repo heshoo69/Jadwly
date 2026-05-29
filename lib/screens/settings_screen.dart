@@ -43,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_isEditingTeacherName && _nameController.text != name) {
       _nameController.text = name;
     }
-    if (!_requestedCloudDeletionRefresh && controller.isSignedIn) {
+    if (!_requestedCloudDeletionRefresh && controller.isCloudSignedIn) {
       _requestedCloudDeletionRefresh = true;
       Future.microtask(controller.refreshCloudDeletionRequest);
     }
@@ -832,7 +832,7 @@ class _AccountSyncPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = AppStrings(controller.languageCode);
     final theme = Theme.of(context);
-    final signedIn = controller.isSignedIn;
+    final signedIn = controller.isCloudSignedIn;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
