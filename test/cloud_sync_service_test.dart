@@ -326,6 +326,16 @@ class _FakeCloudDatabase implements CloudDatabase {
   }) async {}
 
   @override
+  Future<void> saveFcmToken({
+    required String token,
+    required String platform,
+    String? appVersion,
+  }) async {}
+
+  @override
+  Future<void> deleteFcmToken(String token) async {}
+
+  @override
   Future<DateTime> scheduleCloudDataDeletion({
     Duration delay = const Duration(days: 7),
   }) async {

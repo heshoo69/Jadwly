@@ -35,6 +35,12 @@ abstract class CloudDatabase {
     required bool notificationsEnabled,
     required int reminderMinutes,
   });
+  Future<void> saveFcmToken({
+    required String token,
+    required String platform,
+    String? appVersion,
+  });
+  Future<void> deleteFcmToken(String token);
   Future<DateTime> scheduleCloudDataDeletion({
     Duration delay = const Duration(days: 7),
   });
@@ -52,6 +58,7 @@ class SupabaseDatabaseService implements CloudDatabase {
   static const weeklyScheduleTable = 'weekly_schedule';
   static const lessonRecordsTable = 'lesson_records';
   static const reminderSettingsTable = 'reminder_settings';
+  static const fcmTokensTable = 'fcm_tokens';
   static const cloudDataDeletionRequestsTable = 'cloud_data_deletion_requests';
 
   final SupabaseClient _client;
@@ -282,6 +289,38 @@ class SupabaseDatabaseService implements CloudDatabase {
   }
 
   @override
+  Future<void> saveFcmToken({
+    required String token,
+    required String platform,
+    String? appVersion,
+  }) async {
+    final userId = await currentUserId();
+    final now = DateTime.now().toUtc().toIso8601String();
+    await _client.from(fcmTokensTable).upsert(
+      {
+        'teacher_id': userId,
+        'token': token,
+        'platform': platform,
+        'app_version': appVersion,
+        'last_seen_at': now,
+        'updated_at': now,
+      },
+      onConflict: 'token',
+    ).timeout(const Duration(seconds: 8));
+  }
+
+  @override
+  Future<void> deleteFcmToken(String token) async {
+    final userId = await currentUserId();
+    await _client
+        .from(fcmTokensTable)
+        .delete()
+        .eq('teacher_id', userId)
+        .eq('token', token)
+        .timeout(const Duration(seconds: 8));
+  }
+
+  @override
   Future<DateTime> scheduleCloudDataDeletion({
     Duration delay = const Duration(days: 7),
   }) async {
@@ -327,6 +366,7 @@ class SupabaseDatabaseService implements CloudDatabase {
   Future<void> deleteCloudDataForCurrentUser() async {
     final userId = await currentUserId();
     for (final table in [
+      fcmTokensTable,
       weeklyScheduleTable,
       lessonRecordsTable,
       teacherClassesTable,

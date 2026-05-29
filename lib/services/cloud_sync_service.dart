@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
 import '../models/lesson_record.dart';
 import '../models/schedule_item.dart';
 import '../models/teacher_class.dart';
@@ -199,6 +202,30 @@ class CloudSyncService {
       notificationsEnabled: notificationsEnabled,
       reminderMinutes: reminderMinutes,
     );
+  }
+
+  Future<void> saveFcmToken({
+    required String token,
+    required String platform,
+  }) async {
+    await _database.saveFcmToken(
+      token: token,
+      platform: platform,
+      appVersion: await _appVersion(),
+    );
+  }
+
+  Future<void> deleteFcmToken(String token) {
+    return _database.deleteFcmToken(token);
+  }
+
+  Future<String?> _appVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      return '${packageInfo.version}+${packageInfo.buildNumber}';
+    } on MissingPluginException {
+      return null;
+    }
   }
 
   Future<String> _cloudIdFor(String mapKey, String localId) async {

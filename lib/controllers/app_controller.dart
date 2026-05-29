@@ -36,10 +36,16 @@ class AppController extends ChangeNotifier {
       if (event.session != null) {
         unawaited(refreshCloudDeletionRequest());
         unawaited(syncLocalDataToCloud(silent: true));
+        if (notificationsEnabled) {
+          unawaited(_registerFcmTokenForCurrentUser());
+        }
       }
     });
     if (_signedInUserEmail != null) {
       unawaited(refreshCloudDeletionRequest());
+      if (notificationsEnabled) {
+        unawaited(_registerFcmTokenForCurrentUser());
+      }
     }
   }
 
@@ -81,6 +87,9 @@ class AppController extends ChangeNotifier {
     if (email != null) {
       notifyListeners();
       unawaited(refreshCloudDeletionRequest());
+      if (notificationsEnabled) {
+        unawaited(_registerFcmTokenForCurrentUser());
+      }
     } else {
       _cloudDeletionScheduledFor = null;
       notifyListeners();
@@ -324,6 +333,7 @@ class AppController extends ChangeNotifier {
     if (!enabled) {
       await StorageService.settingsBox.put('notificationsEnabled', false);
       await NotificationService.cancelAllClassReminders();
+      unawaited(_deleteFcmTokenForCurrentUser());
       _load();
       await _createAutomaticBackup();
       notifyListeners();
@@ -339,6 +349,7 @@ class AppController extends ChangeNotifier {
     await StorageService.settingsBox.put('notificationsEnabled', granted);
     _load();
     if (granted) {
+      await _registerFcmTokenForCurrentUser();
       await _syncClassReminders();
     } else {
       await NotificationService.cancelAllClassReminders();
@@ -730,6 +741,7 @@ class AppController extends ChangeNotifier {
     final authService = _authService;
     if (authService == null) return false;
     try {
+      await _deleteFcmTokenForCurrentUser();
       await authService.signOut();
       _signedInUserEmail = null;
       notifyListeners();
@@ -852,6 +864,24 @@ class AppController extends ChangeNotifier {
         reminderMinutes: reminderMinutes,
       );
       _lastCloudSyncAt = DateTime.now();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+    }
+  }
+
+  Future<void> _registerFcmTokenForCurrentUser() async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await NotificationService.registerCurrentDeviceToken();
+    } catch (error) {
+      _cloudSyncError = error.toString();
+    }
+  }
+
+  Future<void> _deleteFcmTokenForCurrentUser() async {
+    if (_authService?.currentUser == null) return;
+    try {
+      await NotificationService.deleteCurrentDeviceToken();
     } catch (error) {
       _cloudSyncError = error.toString();
     }

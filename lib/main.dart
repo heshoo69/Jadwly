@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:provider/provider.dart';
 
 import 'controllers/app_controller.dart';
 import 'firebase_options.dart';
@@ -13,12 +14,11 @@ import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'services/supabase_service.dart';
 import 'theme/app_theme.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
   await SupabaseService.initialize();
   await StorageService.init();
   await NotificationService.init();
